@@ -1,2 +1,2 @@
 # azure-functions-availability-monitoring-extension
-This is a new Repo. Description is ToDo.
+Azure Monitor Coded Availability Tests powered by Azure Functions.
