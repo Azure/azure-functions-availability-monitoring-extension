@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
@@ -32,45 +33,41 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             FluentBindingRule<AvailabilityTestAttribute> rule = context.AddBindingRule<AvailabilityTestAttribute>();
 #pragma warning restore CS0618 
 
-            rule.BindToValueProvider(CreateAvailabilityTestInvocationBinder);
+            rule.BindToInput<AvailabilityTestInvocation>(CreateAvailabilityTestInvocation);
+            rule.BindToInput<AvailabilityTelemetry>(CreateAvailabilityTelemetry);
+            rule.BindToInput<JObject>(CreateJObject);
         }
 
-        private Task<IValueBinder> CreateAvailabilityTestInvocationBinder(AvailabilityTestAttribute attribute, Type type)
+        private static Task<AvailabilityTestInvocation> CreateAvailabilityTestInvocation(AvailabilityTestAttribute attribute, ValueBindingContext context)
         {
             Validate.NotNull(attribute, nameof(attribute));
-            Validate.NotNull(type, nameof(type));
+            Validate.NotNull(context, nameof(context));
 
-            if (AvailabilityTestInvocationBinder.BoundValueType.IsAssignableFrom(type))
-            {
-                var binder = new AvailabilityTestInvocationBinder(attribute, _telemetryClient);
-                return Task.FromResult((IValueBinder) binder);
-            }
-            else if (ConverterBinder<AvailabilityTelemetry, AvailabilityTestInvocation>.BoundValueType.IsAssignableFrom(type))
-            {
-                var binder = new ConverterBinder<AvailabilityTelemetry, AvailabilityTestInvocation>(
-                                        new AvailabilityTestInvocationBinder(attribute, _telemetryClient),
-                                        Convert.AvailabilityTestInvocationToAvailabilityTelemetry,
-                                        Convert.AvailabilityTelemetryToAvailabilityTestInvocation);
-                return Task.FromResult((IValueBinder) binder);
-            }
-            else if (ConverterBinder<JObject, AvailabilityTestInvocation>.BoundValueType.IsAssignableFrom(type))
-            {
-                var binder = new ConverterBinder<JObject, AvailabilityTestInvocation>(
-                                        new AvailabilityTestInvocationBinder(attribute, _telemetryClient),
-                                        Convert.AvailabilityTestInvocationToJObject,
-                                        Convert.JObjectToAvailabilityTestInvocation);
-                return Task.FromResult((IValueBinder) binder);
-            }
-            else
-            {
-                // @ToDo Test that IsAssignableFrom stuff!
+            Guid functionInstanceId = context.FunctionInstanceId;
 
-                throw new InvalidOperationException($"Trying to use {nameof(AvailabilityTestAttribute)} to bind a value of type \"{type.FullName}\"."
-                                                  + $" This attribute can only bind values of the following types:"
-                                                  + $" \"{AvailabilityTestInvocationBinder.BoundValueType.FullName}\","
-                                                  + $" \"{ConverterBinder<AvailabilityTelemetry, AvailabilityTestInvocation>.BoundValueType.FullName}\","
-                                                  + $" \"{ConverterBinder<JObject, AvailabilityTestInvocation>.BoundValueType.FullName}\".");
-            }
+            AvailabilityTestInvocation invocationInfo = new AvailabilityTestInvocation(
+                                                                    attribute.TestDisplayName,
+                                                                    attribute.TestArmResourceName,
+                                                                    attribute.LocationDisplayName,
+                                                                    attribute.LocationId,
+                                                                    functionInstanceId);
+
+            var functionInvocationState = new FunctionInvocationState(functionInstanceId, invocationInfo);
+            FunctionInvocationStateCache.SingeltonInstance.RegisterFunctionInvocation(functionInvocationState);
+
+            return Task.FromResult(invocationInfo);
+        }
+
+        private static Task<AvailabilityTelemetry> CreateAvailabilityTelemetry(AvailabilityTestAttribute attribute, ValueBindingContext context)
+        {
+            AvailabilityTestInvocation invocationInfo = CreateAvailabilityTestInvocation(attribute, context).Result;
+            return Task.FromResult(Convert.AvailabilityTestInvocationToAvailabilityTelemetry(invocationInfo));
+        }
+
+        private static Task<JObject> CreateJObject(AvailabilityTestAttribute attribute, ValueBindingContext context)
+        {
+            AvailabilityTestInvocation invocationInfo = CreateAvailabilityTestInvocation(attribute, context).Result;
+            return Task.FromResult(Convert.AvailabilityTestInvocationToJObject(invocationInfo));
         }
     }
 }

@@ -25,7 +25,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public static string GetPropertyOrNull(AvailabilityTelemetry availabilityResult, string propertyName)
         {
             IDictionary<string, string> properties = availabilityResult?.Properties;
-
             if (properties == null || propertyName == null)
             {
                 return null;
@@ -49,8 +48,31 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public static AvailabilityTestInvocation JObjectToAvailabilityTestInvocation(JObject availabilityTestInvocation)
         {
             Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            AvailabilityTestInvocation stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInvocation>();
-            return stronglyTypedTestInvocation;
+
+            try
+            {
+                AvailabilityTestInvocation stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInvocation>();
+                return stronglyTypedTestInvocation;
+            }
+            catch(Exception)
+            {
+                return null;
+            }
+        }
+
+        public static AvailabilityTelemetry JObjectToAvailabilityTelemetry(JObject availabilityResult)
+        {
+            Validate.NotNull(availabilityResult, nameof(availabilityResult));
+
+            try
+            {
+                AvailabilityTelemetry stronglyTypedAvailabilityTelemetry = availabilityResult.ToObject<AvailabilityTelemetry>();
+                return stronglyTypedAvailabilityTelemetry;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         public static AvailabilityTelemetry AvailabilityTestInvocationToAvailabilityTelemetry(AvailabilityTestInvocation availabilityTestInvocation)
