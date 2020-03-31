@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 
@@ -9,18 +11,36 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public enum Stage : Int32
         {
             New = 10,
-            Registered = 20,
+            //Registered = 20,
             Started = 30,
             Completed = 40,
             Removed = 50
         }
 
-        private int _currentStage = (int) Stage.Registered;
+        public class Parameter
+        {
+            public AvailabilityTestInfo AvailabilityTestInfo { get; }
+            public Type Type { get; }
+
+            public string Name { get; set; }
+
+            public Parameter(AvailabilityTestInfo availabilityTestInfo, Type type)
+            {
+                AvailabilityTestInfo = availabilityTestInfo;
+                Type = type;
+                Name = null;
+            }
+        }
+
+        private readonly ConcurrentDictionary<Guid, Parameter> _paremeters = new ConcurrentDictionary<Guid, Parameter>();
+        private int _currentStage = (int) Stage.New;
+
+        private string _activitySpanName = null;
 
         public Guid FunctionInstanceId { get; }
-        public string FormattedFunctionInstanceId { get { return OutputTelemetryFormat.FormatFunctionInstanceId(FunctionInstanceId); } }
+        public string FormattedFunctionInstanceId { get { return OutputTelemetryFormat.FormatGuid (FunctionInstanceId); } }
 
-        public AvailabilityTestInvocation AvailabilityTestInfo { get; }
+        public IReadOnlyDictionary<Guid, Parameter> Parameters { get { return _paremeters; } }
 
         public FunctionInvocationState.Stage CurrentStage { get { return (Stage)_currentStage; } }
 
@@ -28,11 +48,28 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         public Activity ActivitySpan { get; set; }
 
-        public FunctionInvocationState(Guid functionInstanceId, AvailabilityTestInvocation availabilityTestInfo)
+        public string ActivitySpanName { get { return _activitySpanName; } }
+
+        public FunctionInvocationState(Guid functionInstanceId)
         {
-            _currentStage = (int) Stage.New;
             this.FunctionInstanceId = functionInstanceId;
-            this.AvailabilityTestInfo = availabilityTestInfo;
+        }
+
+        public void AddManagedParameter(AvailabilityTestInfo availabilityTestInfo, Type functionParameterType)
+        {
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            Validate.NotNull(functionParameterType, nameof(functionParameterType));
+
+            if (CurrentStage != Stage.New)
+            {
+                throw new InvalidOperationException($"{nameof(AddManagedParameter)}(..) should only be called when {nameof(CurrentStage)} is"
+                                                  + $" {Stage.New}; however, {nameof(CurrentStage)} is {CurrentStage}.");
+            }
+
+            string activitySpanName = OutputTelemetryFormat.FormatActivityName(availabilityTestInfo.TestDisplayName, availabilityTestInfo.LocationDisplayName);
+            Interlocked.CompareExchange(ref _activitySpanName, activitySpanName, null);
+
+            _paremeters.TryAdd(availabilityTestInfo.Identity, new Parameter(availabilityTestInfo, functionParameterType));
         }
 
         public void Transition(FunctionInvocationState.Stage from, FunctionInvocationState.Stage to)

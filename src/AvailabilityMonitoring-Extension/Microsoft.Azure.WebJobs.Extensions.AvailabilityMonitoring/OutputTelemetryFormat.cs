@@ -1,4 +1,6 @@
 ﻿using Microsoft.ApplicationInsights.DataContracts;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 
@@ -16,48 +18,48 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         private const string Moniker_AssociatedAvailabilityResultWithException = "AssociatedAvailabilityResult";
         private const string Moniker_AssociatedExceptionWithAvailabilityResult = "AssociatedException";
 
-        private const string Moniker_FunctionInstanceId = "_MS.FunctionInstanceId";
+        private const string Moniker_AvailabilityTestInfoIdentity = "_MS.AvailabilityTestInfo.Identity";
 
-        public static IDictionary<string, string> CreateExceptionCustomPropertiesForError(AvailabilityTelemetry availabilityResult)
+        public static void AnnotateFunctionError(Exception error, AvailabilityTestInfo functionOutputParam)
         {
-            var exceptionCustomProperties = new Dictionary<string, string>()
+            if (error == null)
             {
-                [$"{Moniker_AssociatedAvailabilityResultWithException}.Name"] = availabilityResult.Name,
-                [$"{Moniker_AssociatedAvailabilityResultWithException}.RunLocation"] = availabilityResult.RunLocation,
-                [$"{Moniker_AssociatedAvailabilityResultWithException}.Id"] = availabilityResult.Id,
-            };
+                return;
+            }
 
-            return exceptionCustomProperties;
+            error.Data[$"{Moniker_AssociatedAvailabilityResultWithException}.Name"] = functionOutputParam.AvailabilityResult.Name;
+            error.Data[$"{Moniker_AssociatedAvailabilityResultWithException}.RunLocation"] = functionOutputParam.AvailabilityResult.RunLocation;
+            error.Data[$"{Moniker_AssociatedAvailabilityResultWithException}.Id"] = functionOutputParam.AvailabilityResult.RunLocation;
         }
 
-        public static IDictionary<string, string> CreateAvailabilityResultCustomPropertiesForError(ExceptionTelemetry exception)
-        {
-            var availabilityResultCustomProperties = new Dictionary<string, string>()
-            {
-                [$"{Moniker_AssociatedExceptionWithAvailabilityResult}.ProblemId"] = Convert.NotNullOrWord(exception?.ProblemId),
-            };
 
-            return availabilityResultCustomProperties;
+        public static void AnnotateAvailabilityResultWithErrorInfo(AvailabilityTestInfo functionOutputParam, Exception error)
+        {
+            string errorInfo = (error == null)
+                                    ? ErrorSetButNotSpecified
+                                    : $"{error.GetType().Name}: {error.Message}";
+
+            functionOutputParam.AvailabilityResult.Properties[$"{Moniker_AssociatedExceptionWithAvailabilityResult}.Info"] = errorInfo;
         }
 
-        public static void AddFunctionInstanceIdMarker(AvailabilityTelemetry availabilityResult, Guid functionInstanceId)
+        public static void AddAvailabilityTestInfoIdentity(AvailabilityTelemetry availabilityResult, Guid functionInstanceId)
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
-            availabilityResult.Properties[Moniker_FunctionInstanceId] = FormatFunctionInstanceId(functionInstanceId);
+            availabilityResult.Properties[Moniker_AvailabilityTestInfoIdentity] = FormatGuid(functionInstanceId);
         }
 
-        public static void RemoveFunctionInstanceIdMarker(AvailabilityTelemetry availabilityResult)
+        public static void RemoveAvailabilityTestInfoIdentity(AvailabilityTelemetry availabilityResult)
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
-            availabilityResult.Properties.Remove(Moniker_FunctionInstanceId);
+            availabilityResult.Properties.Remove(Moniker_AvailabilityTestInfoIdentity);
         }
 
-        public static Guid GetFunctionInstanceId(AvailabilityTelemetry availabilityResult)
+        public static Guid GetAvailabilityTestInfoIdentity(AvailabilityTelemetry availabilityResult)
         {
             string functionInstanceIdStr = null;
-            bool? hasId = availabilityResult?.Properties?.TryGetValue(Moniker_FunctionInstanceId, out functionInstanceIdStr);
+            bool? hasId = availabilityResult?.Properties?.TryGetValue(Moniker_AvailabilityTestInfoIdentity, out functionInstanceIdStr);
             if (true == hasId)
             {
                 if (functionInstanceIdStr != null && Guid.TryParse(functionInstanceIdStr, out Guid functionInstanceId))
@@ -69,9 +71,19 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             return default(Guid);
         }
 
-        public static string FormatFunctionInstanceId(Guid functionInstanceId)
+        public static string FormatGuid(Guid functionInstanceId)
         {
             return functionInstanceId.ToString("D").ToUpper();
+        }
+
+        public static string FormatActivityName(string testDisplayName, string locationDisplayName)
+        {
+            return String.Format("{0} / {1}", testDisplayName, locationDisplayName);
+        }
+
+        public static string FormatTimestamp(DateTimeOffset timestamp)
+        {
+            return JsonConvert.SerializeObject(timestamp);
         }
     }
 }

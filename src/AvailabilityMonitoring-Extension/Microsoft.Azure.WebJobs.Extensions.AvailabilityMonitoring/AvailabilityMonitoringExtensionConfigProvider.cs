@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
-using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.WebJobs.Description;
 using Microsoft.Azure.WebJobs.Host.Bindings;
 using Microsoft.Azure.WebJobs.Host.Config;
@@ -14,11 +11,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
     [Extension("AvailabilityMonitoring")]
     internal class AvailabilityMonitoringExtensionConfigProvider : IExtensionConfigProvider
     {
-        private readonly TelemetryClient _telemetryClient;
-
-        public AvailabilityMonitoringExtensionConfigProvider(TelemetryConfiguration telemetryConfig)
+        public AvailabilityMonitoringExtensionConfigProvider()
         {
-            _telemetryClient = new TelemetryClient(telemetryConfig);
         }
 
         public void Initialize(ExtensionConfigContext context)
@@ -33,41 +27,47 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             FluentBindingRule<AvailabilityTestAttribute> rule = context.AddBindingRule<AvailabilityTestAttribute>();
 #pragma warning restore CS0618 
 
-            rule.BindToInput<AvailabilityTestInvocation>(CreateAvailabilityTestInvocation);
+            rule.BindToInput<AvailabilityTestInfo>(CreateAvailabilityTestInvocation);
             rule.BindToInput<AvailabilityTelemetry>(CreateAvailabilityTelemetry);
             rule.BindToInput<JObject>(CreateJObject);
         }
 
-        private static Task<AvailabilityTestInvocation> CreateAvailabilityTestInvocation(AvailabilityTestAttribute attribute, ValueBindingContext context)
+        private static Task<AvailabilityTestInfo> CreateAvailabilityTestInvocation(AvailabilityTestAttribute attribute, ValueBindingContext context)
         {
             Validate.NotNull(attribute, nameof(attribute));
             Validate.NotNull(context, nameof(context));
 
-            Guid functionInstanceId = context.FunctionInstanceId;
-
-            AvailabilityTestInvocation invocationInfo = new AvailabilityTestInvocation(
-                                                                    attribute.TestDisplayName,
-                                                                    attribute.TestArmResourceName,
-                                                                    attribute.LocationDisplayName,
-                                                                    attribute.LocationId,
-                                                                    functionInstanceId);
-
-            var functionInvocationState = new FunctionInvocationState(functionInstanceId, invocationInfo);
-            FunctionInvocationStateCache.SingeltonInstance.RegisterFunctionInvocation(functionInvocationState);
-
+            AvailabilityTestInfo invocationInfo = CreateAndRegisterInvocation(attribute, context.FunctionInstanceId, typeof(AvailabilityTestInfo));
             return Task.FromResult(invocationInfo);
         }
 
         private static Task<AvailabilityTelemetry> CreateAvailabilityTelemetry(AvailabilityTestAttribute attribute, ValueBindingContext context)
         {
-            AvailabilityTestInvocation invocationInfo = CreateAvailabilityTestInvocation(attribute, context).Result;
+            Validate.NotNull(attribute, nameof(attribute));
+            Validate.NotNull(context, nameof(context));
+
+            AvailabilityTestInfo invocationInfo = CreateAndRegisterInvocation(attribute, context.FunctionInstanceId, typeof(AvailabilityTelemetry));
             return Task.FromResult(Convert.AvailabilityTestInvocationToAvailabilityTelemetry(invocationInfo));
         }
 
         private static Task<JObject> CreateJObject(AvailabilityTestAttribute attribute, ValueBindingContext context)
         {
-            AvailabilityTestInvocation invocationInfo = CreateAvailabilityTestInvocation(attribute, context).Result;
+            Validate.NotNull(attribute, nameof(attribute));
+            Validate.NotNull(context, nameof(context));
+
+            AvailabilityTestInfo invocationInfo = CreateAndRegisterInvocation(attribute, context.FunctionInstanceId, typeof(JObject));
             return Task.FromResult(Convert.AvailabilityTestInvocationToJObject(invocationInfo));
+        }
+
+        private static AvailabilityTestInfo CreateAndRegisterInvocation(AvailabilityTestAttribute attribute, Guid functionInstanceId, Type functionParameterType)
+        {
+            var availabilityTestInfo = new AvailabilityTestInfo(attribute.TestDisplayName,
+                                                                attribute.TestArmResourceName,
+                                                                attribute.LocationDisplayName,
+                                                                attribute.LocationId);
+
+            FunctionInvocationStateCache.SingeltonInstance.RegisterFunctionInvocation(functionInstanceId, availabilityTestInfo, functionParameterType);
+            return availabilityTestInfo;
         }
     }
 }

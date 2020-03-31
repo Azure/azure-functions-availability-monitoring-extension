@@ -9,32 +9,14 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         private readonly ConcurrentDictionary<Guid, FunctionInvocationState> _invocationStates = new ConcurrentDictionary<Guid, FunctionInvocationState>();
 
-        public void RegisterFunctionInvocation(FunctionInvocationState invocationState)
+
+        public void RegisterFunctionInvocation(Guid functionInstanceId, AvailabilityTestInfo availabilityTestInfo, Type functionParameterType)
         {
-            Validate.NotNull(invocationState, nameof(invocationState));
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            Validate.NotNull(functionParameterType, nameof(functionParameterType));
 
-            try
-            {
-                invocationState.Transition(from: FunctionInvocationState.Stage.New, to: FunctionInvocationState.Stage.Registered);
-            }
-            catch(InvalidOperationException invOpEx)
-            {
-                throw new InvalidOperationException($"A {nameof(FunctionInvocationState)} can be registered with the {nameof(FunctionInvocationStateCache)}"
-                                                  + $" only if {nameof(invocationState.CurrentStage)} == {nameof(FunctionInvocationState.Stage.New)}.",
-                                                    invOpEx);
-            }
-
-            bool added = _invocationStates.TryAdd(invocationState.FunctionInstanceId, invocationState);
-            if (! added)
-            {
-                throw new InvalidOperationException($"Error adding a {nameof(FunctionInvocationState)}"
-                                                  + $" for {nameof(invocationState.FunctionInstanceId)} = {invocationState.FormattedFunctionInstanceId}"
-                                                  + $" to a {nameof(FunctionInvocationStateCache)}: A {nameof(FunctionInvocationState)} with"
-                                                  + $" this {nameof(invocationState.FunctionInstanceId)} is already registered."
-                                                  + $" This can occur when {nameof(invocationState.FunctionInstanceId)} is not unique"
-                                                  + $" or when the {nameof(AvailabilityTestAttribute)} is used on more than one parameter of a function"
-                                                  + $" (make sure not to apply the {nameof(AvailabilityTestAttribute)} to more than one parameter in any given function).");
-            }
+            FunctionInvocationState invocationState = _invocationStates.GetOrAdd(functionInstanceId, (_) => new FunctionInvocationState(functionInstanceId));
+            invocationState.AddManagedParameter(availabilityTestInfo, functionParameterType);
         }
 
         public bool TryStartFunctionInvocation(Guid functionInstanceId, out FunctionInvocationState invocationState)
@@ -47,7 +29,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             try
             {
-                invocationState.Transition(from: FunctionInvocationState.Stage.Registered, to: FunctionInvocationState.Stage.Started);
+                invocationState.Transition(from: FunctionInvocationState.Stage.New, to: FunctionInvocationState.Stage.Started);
                 return true;
             }
             catch (InvalidOperationException invOpEx)

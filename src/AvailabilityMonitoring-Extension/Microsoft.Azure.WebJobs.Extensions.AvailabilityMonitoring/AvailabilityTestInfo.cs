@@ -5,7 +5,7 @@ using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
-    public class AvailabilityTestInvocation
+    public class AvailabilityTestInfo
     {
         [JsonProperty]
         public string TestDisplayName { get; }
@@ -26,14 +26,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public AvailabilityTelemetry AvailabilityResult { get; }
 
         [JsonProperty]
-        internal Guid FunctionInstanceId { get; }
+        internal Guid Identity { get; }
 
-        public AvailabilityTestInvocation(
+        public AvailabilityTestInfo(
                     string testDisplayName,
                     string testArmResourceName, 
                     string locationDisplayName, 
-                    string locationId,
-                    Guid functionInstanceId)
+                    string locationId)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
             Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
@@ -48,32 +47,32 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             this.AvailabilityResult = CreateNewAvailabilityResult();
 
-            this.FunctionInstanceId = functionInstanceId;
+            this.Identity = Guid.NewGuid();
         }
 
-        public AvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
+        public AvailabilityTestInfo(AvailabilityTelemetry availabilityResult)
             : this(Convert.NotNullOrWord(availabilityResult?.Name),
                    Convert.GetPropertyOrNullWord(availabilityResult, "WebtestArmResourceName"),
                    Convert.NotNullOrWord(availabilityResult?.RunLocation),
-                   Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"),
-                   OutputTelemetryFormat.GetFunctionInstanceId(availabilityResult))
+                   Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"))
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
             this.StartTime = availabilityResult.Timestamp;
             this.AvailabilityResult = availabilityResult;
+            this.Identity = OutputTelemetryFormat.GetAvailabilityTestInfoIdentity(availabilityResult);
         }
 
         /// <summary>
         /// This is called by Newtonsoft.Json when converting from JObject.
         /// </summary>
         [JsonConstructor]
-        private AvailabilityTestInvocation(
+        private AvailabilityTestInfo(
                    string testDisplayName,
                    string testArmResourceName,
                    string locationDisplayName,
                    string locationId,
-                   Guid functionInstanceId,
+                   Guid identity,
                    DateTimeOffset startTime,
                    AvailabilityTelemetry availabilityResult)
         {
@@ -87,7 +86,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             this.TestArmResourceName = testArmResourceName;
             this.LocationDisplayName = locationDisplayName;
             this.LocationId = locationId;
-            this.FunctionInstanceId = functionInstanceId;
+            this.Identity = identity;
             this.StartTime = startTime;
             this.AvailabilityResult = availabilityResult;
         }
@@ -120,7 +119,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                                   + $"/features/{this.TestArmResourceName}"
                                                                   + $"/locations/{this.LocationId}";
 
-            OutputTelemetryFormat.AddFunctionInstanceIdMarker(availabilityResult, FunctionInstanceId);
+            OutputTelemetryFormat.AddAvailabilityTestInfoIdentity(availabilityResult, Identity);
 
             return availabilityResult;
         }

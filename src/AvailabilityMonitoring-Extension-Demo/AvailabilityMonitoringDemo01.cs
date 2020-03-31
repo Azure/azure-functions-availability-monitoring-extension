@@ -29,7 +29,7 @@ namespace AvailabilityMonitoringExtensionDemo
         //                [AvailabilityTest(TestDisplayName = "Test Display Name",
         //                                  TestArmResourceName = "Test ARM Resource Name",
         //                                  LocationDisplayName = "Location Display Name",
-        //                                  LocationId = "Location Id")] AvailabilityTestInvocation testInvocation,
+        //                                  LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
         //                ILogger log)
         //{
         //    log.LogInformation($"@@@@@@@@@@@@ \"{FunctionName}.{nameof(SimpleIoBinding)}\" started.");
@@ -40,35 +40,38 @@ namespace AvailabilityMonitoringExtensionDemo
         //    await Task.Delay(0);
         //}
 
-        //[FunctionName("Availability-Monitoring-Demo-01-B-IoBindingWithException")]
-        //public async Task IoBindingWithException(
-        //                [TimerTrigger("10 */1 * * * *")] TimerInfo timerInfo,
-        //                [AvailabilityTest(TestDisplayName = "Test Display Name",
-        //                                  TestArmResourceName = "Test ARM Resource Name",
-        //                                  LocationDisplayName = "Location Display Name",
-        //                                  LocationId = "Location Id")] AvailabilityTestInvocation testInvocation,
-        //                ILogger log)
-        //{
-        //    const bool SimulateError = false;
+        //        [FunctionName("Availability-Monitoring-Demo-01-B-IoBindingWithException")]
+        //        public async Task IoBindingWithException(
+        //                        [TimerTrigger("10 */1 * * * *")] TimerInfo timerInfo,
+        //                        [AvailabilityTest(TestDisplayName = "Test Display Name",
+        //                                          TestArmResourceName = "Test ARM Resource Name",
+        //                                          LocationDisplayName = "Location Display Name",
+        //                                          LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
+        //                        ILogger log)
+        //        {
+        //            const bool SimulateError = true;
 
-        //    log.LogInformation($"############ \"{FunctionName}.{nameof(IoBindingWithException)}\" started.");
-        //    log.LogInformation($"############ {ToString(timerInfo)}");
+        //            log.LogInformation($"############ \"{FunctionName}.{nameof(IoBindingWithException)}\" started.");
+        //            log.LogInformation($"############ {ToString(timerInfo)}");
 
-        //    testInvocation.AvailabilityResult.Name += " | Name modified before exception (B)";
+        //            testInvocation.AvailabilityResult.Name += " | Name modified before exception (B)";
 
-        //    if (SimulateError)
-        //    {
-        //        throw new Exception("I AM A TEST EXCEPTION!! (B)");
-        //    }
+        //            if (SimulateError)
+        //            {
+        //                throw new Exception("I AM A TEST EXCEPTION!! (B)");
+        //            }
 
-        //    testInvocation.AvailabilityResult.Name += " | Name modified after exception site (B)";
+        //#pragma warning disable CS0162 // Unreachable code detected
+        //            testInvocation.AvailabilityResult.Name += " | Name modified after exception site (B)";
+        //#pragma warning restore CS0162 // Unreachable code detected
 
-        //    await Task.Delay(0);
-        //}
+        //            await Task.Delay(0);
+        //        }
 
         [FunctionName("Availability-Monitoring-Demo-01-C-BindingToJObject")]
         public async Task BindingToJObject(
-                        [TimerTrigger("15 */1 * * * *")] TimerInfo timerInfo,
+                        //[TimerTrigger("15 */1 * * * *")] TimerInfo timerInfo,
+                        [TimerTrigger("%AvailabilityTestInterval(1 minute)%")] TimerInfo timerInfo,
                         [AvailabilityTest(TestDisplayName = "Test Display Name",
                                           TestArmResourceName = "Test ARM Resource Name",
                                           LocationDisplayName = "Location Display Name",
