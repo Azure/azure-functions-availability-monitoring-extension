@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.29519.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring", "AvailabilityMonitoring-Extension\Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.csproj", "{13CD7C8A-600D-4F5B-84B4-40D2575E21F2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-Demo", "AvailabilityMonitoring-Extension-Demo\AvailabilityMonitoring-Extension-Demo.csproj", "{0AA499F5-F903-4FAC-BF3B-EA75D6735167}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoConsole", "AvailabilityMonitoring-Extension-DemoConsole\AvailabilityMonitoring-Extension-DemoConsole.csproj", "{0AA499F5-F903-4FAC-BF3B-EA75D6735167}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvailabilityMonitoring-Extension-DemoFunction", "AvailabilityMonitoring-Extension-DemoFunction\AvailabilityMonitoring-Extension-DemoFunction.csproj", "{32B33932-2F92-4236-A286-3A085781E11C}"
 EndProject
