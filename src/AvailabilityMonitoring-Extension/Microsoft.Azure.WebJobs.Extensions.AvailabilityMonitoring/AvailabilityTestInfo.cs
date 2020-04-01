@@ -5,24 +5,34 @@ using Microsoft.ApplicationInsights.DataContracts;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
-    public class AvailabilityTestInvocation
+    public class AvailabilityTestInfo
     {
+        [JsonProperty]
         public string TestDisplayName { get; }
+
+        [JsonProperty]
         public string TestArmResourceName { get; }
 
+        [JsonProperty]
         public string LocationDisplayName { get; }
+
+        [JsonProperty]
         public string LocationId { get; }
 
-        public DateTimeOffset StartTime { get; }
+        [JsonProperty]
+        public DateTimeOffset StartTime { get; private set; }
 
+        [JsonProperty]
         public AvailabilityTelemetry AvailabilityResult { get; }
 
-        public AvailabilityTestInvocation(
+        [JsonProperty]
+        internal Guid Identity { get; }
+
+        public AvailabilityTestInfo(
                     string testDisplayName,
                     string testArmResourceName, 
                     string locationDisplayName, 
-                    string locationId, 
-                    DateTimeOffset startTime)
+                    string locationId)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
             Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
@@ -33,32 +43,36 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             this.TestArmResourceName = testArmResourceName;
             this.LocationDisplayName = locationDisplayName;
             this.LocationId = locationId;
-            this.StartTime = startTime;
+            this.StartTime = default(DateTimeOffset);
 
             this.AvailabilityResult = CreateNewAvailabilityResult();
+
+            this.Identity = Guid.NewGuid();
         }
 
-        public AvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
+        public AvailabilityTestInfo(AvailabilityTelemetry availabilityResult)
             : this(Convert.NotNullOrWord(availabilityResult?.Name),
                    Convert.GetPropertyOrNullWord(availabilityResult, "WebtestArmResourceName"),
                    Convert.NotNullOrWord(availabilityResult?.RunLocation),
-                   Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"),
-                   availabilityResult?.Timestamp ?? DateTimeOffset.Now)
+                   Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"))
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
+            this.StartTime = availabilityResult.Timestamp;
             this.AvailabilityResult = availabilityResult;
+            this.Identity = OutputTelemetryFormat.GetAvailabilityTestInfoIdentity(availabilityResult);
         }
 
         /// <summary>
         /// This is called by Newtonsoft.Json when converting from JObject.
         /// </summary>
         [JsonConstructor]
-        private AvailabilityTestInvocation(
+        private AvailabilityTestInfo(
                    string testDisplayName,
                    string testArmResourceName,
                    string locationDisplayName,
                    string locationId,
+                   Guid identity,
                    DateTimeOffset startTime,
                    AvailabilityTelemetry availabilityResult)
         {
@@ -72,21 +86,16 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             this.TestArmResourceName = testArmResourceName;
             this.LocationDisplayName = locationDisplayName;
             this.LocationId = locationId;
+            this.Identity = identity;
             this.StartTime = startTime;
             this.AvailabilityResult = availabilityResult;
         }
 
-
-        //private void InitSampleValues()
-        //{
-        //    this.TestDisplayName = "User-specified Test name";
-        //    this.TestArmResourceName = "user-specified-test-name-appinsights-component-name";
-
-        //    this.LocationDisplayName = "Southeast Asia";
-        //    this.LocationId = "apac-sg-sin-azr";
-
-        //    this.StartTime = DateTimeOffset.Now;
-        //}
+        internal void SetStartTime (DateTimeOffset startTime)
+        {
+            this.StartTime = startTime;
+            this.AvailabilityResult.Timestamp = startTime.ToUniversalTime();
+        }
 
         private AvailabilityTelemetry CreateNewAvailabilityResult()
         {
@@ -102,7 +111,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             availabilityResult.Name = this.TestDisplayName;
             availabilityResult.RunLocation = this.LocationDisplayName;
 
-            // availabilityResult.Properties["FullTestResultAvailable"] = "to what do we set this?";
             availabilityResult.Properties["SyntheticMonitorId"] = $"default_{this.TestArmResourceName}_{this.LocationId}";
             availabilityResult.Properties["WebtestArmResourceName"] = this.TestArmResourceName;
             availabilityResult.Properties["WebtestLocationId"] = this.LocationId;
@@ -110,6 +118,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                                   + $"/applications/{mockApplicationInsightsArmResourceName}"
                                                                   + $"/features/{this.TestArmResourceName}"
                                                                   + $"/locations/{this.LocationId}";
+
+            OutputTelemetryFormat.AddAvailabilityTestInfoIdentity(availabilityResult, Identity);
+
             return availabilityResult;
         }
     }

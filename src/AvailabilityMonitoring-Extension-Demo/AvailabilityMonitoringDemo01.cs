@@ -22,52 +22,56 @@ namespace AvailabilityMonitoringExtensionDemo
             _telemetryClient = new TelemetryClient(telemetryConfig);
         }
 
-        [FunctionName("Availability-Monitoring-Demo-01-A-SimpleIoBinding")]
-        public async Task SimpleIoBinding(
-                        [TimerTrigger("5 */1 * * * *")] TimerInfo timerInfo,
-                        [AvailabilityTest(TestDisplayName = "Test Display Name",
-                                          TestArmResourceName = "Test ARM Resource Name",
-                                          LocationDisplayName = "Location Display Name",
-                                          LocationId = "Location Id")] AvailabilityTestInvocation testInvocation,
-                        ILogger log)
-        {
-            log.LogInformation($"@@@@@@@@@@@@ \"{FunctionName}.{nameof(SimpleIoBinding)}\" started.");
-            log.LogInformation($"@@@@@@@@@@@@ {ToString(timerInfo)}");
+        //[FunctionName("Availability-Monitoring-Demo-01-A-SimpleIoBinding")]
+        //public async Task SimpleIoBinding(
+        //                [TimerTrigger("5 */1 * * * *")] TimerInfo timerInfo,
+        //                //[TimerTrigger("%FooBar%")] TimerInfo timerInfo,
+        //                [AvailabilityTest(TestDisplayName = "Test Display Name",
+        //                                  TestArmResourceName = "Test ARM Resource Name",
+        //                                  LocationDisplayName = "Location Display Name",
+        //                                  LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
+        //                ILogger log)
+        //{
+        //    log.LogInformation($"@@@@@@@@@@@@ \"{FunctionName}.{nameof(SimpleIoBinding)}\" started.");
+        //    log.LogInformation($"@@@@@@@@@@@@ {ToString(timerInfo)}");
 
-            testInvocation.AvailabilityResult.Name += " | Name was modified (A)";
+        //    testInvocation.AvailabilityResult.Name += " | Name was modified (A)";
 
-            await Task.Delay(0);
-        }
+        //    await Task.Delay(0);
+        //}
 
-        [FunctionName("Availability-Monitoring-Demo-01-B-IoBindingWithException")]
-        public async Task IoBindingWithException(
-                        [TimerTrigger("10 */1 * * * *")] TimerInfo timerInfo,
-                        [AvailabilityTest(TestDisplayName = "Test Display Name",
-                                          TestArmResourceName = "Test ARM Resource Name",
-                                          LocationDisplayName = "Location Display Name",
-                                          LocationId = "Location Id")] AvailabilityTestInvocation testInvocation,
-                        ILogger log)
-        {
-            const bool SimulateError = false;
+        //        [FunctionName("Availability-Monitoring-Demo-01-B-IoBindingWithException")]
+        //        public async Task IoBindingWithException(
+        //                        [TimerTrigger("10 */1 * * * *")] TimerInfo timerInfo,
+        //                        [AvailabilityTest(TestDisplayName = "Test Display Name",
+        //                                          TestArmResourceName = "Test ARM Resource Name",
+        //                                          LocationDisplayName = "Location Display Name",
+        //                                          LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
+        //                        ILogger log)
+        //        {
+        //            const bool SimulateError = true;
 
-            log.LogInformation($"############ \"{FunctionName}.{nameof(IoBindingWithException)}\" started.");
-            log.LogInformation($"############ {ToString(timerInfo)}");
+        //            log.LogInformation($"############ \"{FunctionName}.{nameof(IoBindingWithException)}\" started.");
+        //            log.LogInformation($"############ {ToString(timerInfo)}");
 
-            testInvocation.AvailabilityResult.Name += " | Name modified before exception (B)";
+        //            testInvocation.AvailabilityResult.Name += " | Name modified before exception (B)";
 
-            if (SimulateError)
-            {
-                throw new Exception("I AM A TEST EXCEPTION!! (B)");
-            }
+        //            if (SimulateError)
+        //            {
+        //                throw new Exception("I AM A TEST EXCEPTION!! (B)");
+        //            }
 
-            testInvocation.AvailabilityResult.Name += " | Name modified after exception site (B)";
+        //#pragma warning disable CS0162 // Unreachable code detected
+        //            testInvocation.AvailabilityResult.Name += " | Name modified after exception site (B)";
+        //#pragma warning restore CS0162 // Unreachable code detected
 
-            await Task.Delay(0);
-        }
+        //            await Task.Delay(0);
+        //        }
 
         [FunctionName("Availability-Monitoring-Demo-01-C-BindingToJObject")]
         public async Task BindingToJObject(
-                        [TimerTrigger("15 */1 * * * *")] TimerInfo timerInfo,
+                        //[TimerTrigger("15 */1 * * * *")] TimerInfo timerInfo,
+                        [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
                         [AvailabilityTest(TestDisplayName = "Test Display Name",
                                           TestArmResourceName = "Test ARM Resource Name",
                                           LocationDisplayName = "Location Display Name",
@@ -94,24 +98,24 @@ namespace AvailabilityMonitoringExtensionDemo
             await Task.Delay(0);
         }
 
-        [FunctionName("Availability-Monitoring-Demo-01-D-BindingToAvailabilityTelemetry")]
-        public async Task BindingToAvailabilityTelemetry(
-                        [TimerTrigger("20 */1 * * * *")] TimerInfo timerInfo,
-                        [AvailabilityTest(TestDisplayName = "Test Display Name",
-                                          TestArmResourceName = "Test ARM Resource Name",
-                                          LocationDisplayName = "Location Display Name",
-                                          LocationId = "Location Id")] AvailabilityTelemetry availabilityResult,
-                        ILogger log)
-        {
-            log.LogInformation($"%%%%%%%%%%%% \"{FunctionName}.{nameof(BindingToAvailabilityTelemetry)}\" started.");
-            log.LogInformation($"%%%%%%%%%%%% {ToString(timerInfo)}");
+        //[FunctionName("Availability-Monitoring-Demo-01-D-BindingToAvailabilityTelemetry")]
+        //public async Task BindingToAvailabilityTelemetry(
+        //                [TimerTrigger("20 */1 * * * *")] TimerInfo timerInfo,
+        //                [AvailabilityTest(TestDisplayName = "Test Display Name",
+        //                                  TestArmResourceName = "Test ARM Resource Name",
+        //                                  LocationDisplayName = "Location Display Name",
+        //                                  LocationId = "Location Id")] AvailabilityTelemetry availabilityResult,
+        //                ILogger log)
+        //{
+        //    log.LogInformation($"%%%%%%%%%%%% \"{FunctionName}.{nameof(BindingToAvailabilityTelemetry)}\" started.");
+        //    log.LogInformation($"%%%%%%%%%%%% {ToString(timerInfo)}");
 
-            availabilityResult.Name += " | AvailabilityResult.Name was modified (D)";
-            availabilityResult.Message = "This is a test message (D)";
-            availabilityResult.Properties["Custom Dimension"] = "Custom Dimension Value (D)";
+        //    availabilityResult.Name += " | AvailabilityResult.Name was modified (D)";
+        //    availabilityResult.Message = "This is a test message (D)";
+        //    availabilityResult.Properties["Custom Dimension"] = "Custom Dimension Value (D)";
 
-            await Task.Delay(0);
-        }
+        //    await Task.Delay(0);
+        //}
 
 
 

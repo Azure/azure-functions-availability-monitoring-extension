@@ -17,6 +17,12 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static object NotNullOrWord(object s)
+        {
+            return s ?? NullWord;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetPropertyOrNullWord(AvailabilityTelemetry availabilityResult, string propertyName)
         {
             return NotNullOrWord(GetPropertyOrNull(availabilityResult, propertyName));
@@ -25,7 +31,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public static string GetPropertyOrNull(AvailabilityTelemetry availabilityResult, string propertyName)
         {
             IDictionary<string, string> properties = availabilityResult?.Properties;
-
             if (properties == null || propertyName == null)
             {
                 return null;
@@ -39,30 +44,53 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             return propertyValue;
         }
 
-        public static JObject AvailabilityTestInvocationToJObject(AvailabilityTestInvocation availabilityTestInvocation)
+        public static JObject AvailabilityTestInvocationToJObject(AvailabilityTestInfo availabilityTestInvocation)
         {
             Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
             JObject jObject = JObject.FromObject(availabilityTestInvocation);
             return jObject;
         }
 
-        public static AvailabilityTestInvocation JObjectToAvailabilityTestInvocation(JObject availabilityTestInvocation)
+        public static AvailabilityTestInfo JObjectToAvailabilityTestInvocation(JObject availabilityTestInvocation)
         {
             Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            AvailabilityTestInvocation stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInvocation>();
-            return stronglyTypedTestInvocation;
+
+            try
+            {
+                AvailabilityTestInfo stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInfo>();
+                return stronglyTypedTestInvocation;
+            }
+            catch(Exception)
+            {
+                return null;
+            }
         }
 
-        public static AvailabilityTelemetry AvailabilityTestInvocationToAvailabilityTelemetry(AvailabilityTestInvocation availabilityTestInvocation)
+        public static AvailabilityTelemetry JObjectToAvailabilityTelemetry(JObject availabilityResult)
+        {
+            Validate.NotNull(availabilityResult, nameof(availabilityResult));
+
+            try
+            {
+                AvailabilityTelemetry stronglyTypedAvailabilityTelemetry = availabilityResult.ToObject<AvailabilityTelemetry>();
+                return stronglyTypedAvailabilityTelemetry;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        public static AvailabilityTelemetry AvailabilityTestInvocationToAvailabilityTelemetry(AvailabilityTestInfo availabilityTestInvocation)
         {
             Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
             return availabilityTestInvocation.AvailabilityResult;
         }
 
-        public static AvailabilityTestInvocation AvailabilityTelemetryToAvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
+        public static AvailabilityTestInfo AvailabilityTelemetryToAvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
-            return new AvailabilityTestInvocation(availabilityResult);
+            return new AvailabilityTestInfo(availabilityResult);
         }
     }
 }
