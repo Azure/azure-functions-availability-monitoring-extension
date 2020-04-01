@@ -71,7 +71,7 @@ namespace AvailabilityMonitoringExtensionDemo
         [FunctionName("Availability-Monitoring-Demo-01-C-BindingToJObject")]
         public async Task BindingToJObject(
                         //[TimerTrigger("15 */1 * * * *")] TimerInfo timerInfo,
-                        [TimerTrigger("%AvailabilityTestInterval(1 minute)%")] TimerInfo timerInfo,
+                        [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
                         [AvailabilityTest(TestDisplayName = "Test Display Name",
                                           TestArmResourceName = "Test ARM Resource Name",
                                           LocationDisplayName = "Location Display Name",
