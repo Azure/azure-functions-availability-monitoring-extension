@@ -8,24 +8,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
     internal static class Convert
     {
-        private static readonly string NullWord = "null";
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string NotNullOrWord(string s)
-        {
-            return s ?? NullWord;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static object NotNullOrWord(object s)
-        {
-            return s ?? NullWord;
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetPropertyOrNullWord(AvailabilityTelemetry availabilityResult, string propertyName)
         {
-            return NotNullOrWord(GetPropertyOrNull(availabilityResult, propertyName));
+            return Format.NotNullOrWord(GetPropertyOrNull(availabilityResult, propertyName));
         }
 
         public static string GetPropertyOrNull(AvailabilityTelemetry availabilityResult, string propertyName)

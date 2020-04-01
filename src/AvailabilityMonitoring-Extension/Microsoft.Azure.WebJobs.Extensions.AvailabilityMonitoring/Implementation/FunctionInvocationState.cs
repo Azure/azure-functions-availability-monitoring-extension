@@ -11,10 +11,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public enum Stage : Int32
         {
             New = 10,
-            //Registered = 20,
-            Started = 30,
-            Completed = 40,
-            Removed = 50
+            Started = 20,
+            Completed = 30,
+            Removed = 40
         }
 
         public class Parameter
@@ -32,17 +31,17 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             }
         }
 
-        private readonly ConcurrentDictionary<Guid, Parameter> _paremeters = new ConcurrentDictionary<Guid, Parameter>();
-        private int _currentStage = (int) Stage.New;
+        private readonly ConcurrentDictionary<Guid, FunctionInvocationState.Parameter> _paremeters = new ConcurrentDictionary<Guid, FunctionInvocationState.Parameter>();
+        private int _currentStage = (int)FunctionInvocationState.Stage.New;
 
         private string _activitySpanName = null;
 
         public Guid FunctionInstanceId { get; }
-        public string FormattedFunctionInstanceId { get { return OutputTelemetryFormat.FormatGuid (FunctionInstanceId); } }
+        public string FormattedFunctionInstanceId { get { return Format.Guid (FunctionInstanceId); } }
 
-        public IReadOnlyDictionary<Guid, Parameter> Parameters { get { return _paremeters; } }
+        public IReadOnlyDictionary<Guid, FunctionInvocationState.Parameter> Parameters { get { return _paremeters; } }
 
-        public FunctionInvocationState.Stage CurrentStage { get { return (Stage)_currentStage; } }
+        public FunctionInvocationState.Stage CurrentStage { get { return (FunctionInvocationState.Stage)_currentStage; } }
 
         public DateTimeOffset StartTime { get; set; }
 
@@ -60,13 +59,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
             Validate.NotNull(functionParameterType, nameof(functionParameterType));
 
-            if (CurrentStage != Stage.New)
+            if (CurrentStage != FunctionInvocationState.Stage.New)
             {
                 throw new InvalidOperationException($"{nameof(AddManagedParameter)}(..) should only be called when {nameof(CurrentStage)} is"
                                                   + $" {Stage.New}; however, {nameof(CurrentStage)} is {CurrentStage}.");
             }
 
-            string activitySpanName = OutputTelemetryFormat.FormatActivityName(availabilityTestInfo.TestDisplayName, availabilityTestInfo.LocationDisplayName);
+            string activitySpanName = Format.ActivitySpanName(availabilityTestInfo.TestDisplayName, availabilityTestInfo.LocationDisplayName);
             Interlocked.CompareExchange(ref _activitySpanName, activitySpanName, null);
 
             _paremeters.TryAdd(availabilityTestInfo.Identity, new Parameter(availabilityTestInfo, functionParameterType));

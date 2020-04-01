@@ -16,13 +16,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
     internal class FunctionInvocationManagementFilter : IFunctionInvocationFilter
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
     {
-        private static bool IsUserCodeTimeout(Exception error, CancellationToken cancelControl)
-        {
-            bool IsUserCodeTimeout = (cancelControl == (error as TaskCanceledException)?.CancellationToken);
-            return IsUserCodeTimeout;
-        }
-
-
         private readonly TelemetryClient _telemetryClient;
 
         public FunctionInvocationManagementFilter(TelemetryClient telemetryClient)
@@ -50,7 +43,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             IdentifyManagedParameters(invocationState, executingContext.Arguments);
 
             // Start activity:
-            string activityName = Convert.NotNullOrWord(invocationState.ActivitySpanName);
+            string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
             invocationState.ActivitySpan = new Activity(activityName).Start();
             string activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
             
@@ -126,17 +119,17 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 // Find the actual parameter value in the function arguments (named lookup):
                 if (false == executedContext.Arguments.TryGetValue(registeredRaram.Name, out object functionOutputParam))
                 {
-                    throw new InvalidOperationException($"A parameter with name \"{Convert.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Convert.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Convert.NotNullOrWord(executedContext?.FunctionName)}\", but it was not found in the"
+                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", but it was not found in the"
                                                       + $" actual argument list after the function invocation.");
                 }
 
                 if (functionOutputParam == null)
                 {
-                    throw new InvalidOperationException($"A parameter with name \"{Convert.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Convert.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Convert.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
+                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
                                                       + $" actual argument list after the function invocation was null.");
                 }
 
@@ -182,11 +175,11 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
                 if (false == functionOutputParamProcessed)
                 {
-                    throw new InvalidOperationException($"A parameter with name \"{Convert.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Convert.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Convert.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
+                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
                                                       + $" actual argument list after the function invocation cannot be processed"
-                                                      + $" ({Convert.NotNullOrWord(functionOutputParam?.GetType()?.Name)}).");
+                                                      + $" ({Format.NotNullOrWord(functionOutputParam?.GetType()?.Name)}).");
                 }
             }
 
@@ -210,20 +203,22 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 functionOutputParam.AvailabilityResult.Success = false;
 
                 // Annotate exception and the availability result:
-                OutputTelemetryFormat.AnnotateFunctionError(error, functionOutputParam);
-                OutputTelemetryFormat.AnnotateAvailabilityResultWithErrorInfo(functionOutputParam, error);
+                Format.AnnotateFunctionErrorWithAvailabilityTelemetryInfo(error, functionOutputParam);
+                Format.AnnotateAvailabilityResultWithErrorInfo(functionOutputParam, error);
             }
 
             // If user did not initialize Message, initialize it to default value according to the result:
             if (String.IsNullOrEmpty(functionOutputParam.AvailabilityResult.Message))
             {
+                bool isUserCodeTimeout = (cancelControl == (error as TaskCanceledException)?.CancellationToken);
+
                 functionOutputParam.AvailabilityResult.Message = errorOcurred
-                                                                ? IsUserCodeTimeout(error, cancelControl)
-                                                                        ? OutputTelemetryFormat.DefaultResultMessage_Timeout
-                                                                        : OutputTelemetryFormat.DefaultResultMessage_Error
+                                                                ? isUserCodeTimeout
+                                                                        ? Format.DefaultResultMessage_Timeout
+                                                                        : Format.DefaultResultMessage_Error
                                                                 : functionOutputParam.AvailabilityResult.Success
-                                                                        ? OutputTelemetryFormat.DefaultResultMessage_Pass
-                                                                        : OutputTelemetryFormat.DefaultResultMessage_Fail;
+                                                                        ? Format.DefaultResultMessage_Pass
+                                                                        : Format.DefaultResultMessage_Fail;
             }
 
             // If user did not initialize Duration, initialize it to default value according to the measurement:
@@ -233,7 +228,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             }
 
             // Send the availability result to the backend:
-            OutputTelemetryFormat.RemoveAvailabilityTestInfoIdentity(functionOutputParam.AvailabilityResult);
+            Format.RemoveAvailabilityTestInfoIdentity(functionOutputParam.AvailabilityResult);
             functionOutputParam.AvailabilityResult.Id = activitySpadId;
             _telemetryClient.TrackAvailability(functionOutputParam.AvailabilityResult);
         }
@@ -272,7 +267,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                         if (availabilityResultParameter != null)
                         {
                             // Find registered parameter with the right ID, validate, and store its name:
-                            Guid actualFunctionParameterId = OutputTelemetryFormat.GetAvailabilityTestInfoIdentity(availabilityResultParameter);
+                            Guid actualFunctionParameterId = Format.GetAvailabilityTestInfoIdentity(availabilityResultParameter);
                             if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
                             {
                                 identifiedParameterCount++;
@@ -319,7 +314,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             // Validate type match:
             if (false == actualParamValue.GetType().Equals(registeredParam.Type))
             {
-                throw new InvalidProgramException($"The parameter with the identity \'{OutputTelemetryFormat.FormatGuid(actualParamId)}\'"
+                throw new InvalidProgramException($"The parameter with the identity \'{Format.Guid(actualParamId)}\'"
                                                 + $" is expected to be of type {registeredParam.Type},"
                                                 + $" but in reality it is of type {actualParamValue.GetType().Name}.");
             }
@@ -327,7 +322,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             // Validate ID uniqueness:
             if (registeredParam.Name != null)
             {
-                throw new InvalidProgramException($"The parameter with the identity \'{OutputTelemetryFormat.FormatGuid(actualParamId)}\'"
+                throw new InvalidProgramException($"The parameter with the identity \'{Format.Guid(actualParamId)}\'"
                                                 + $" has the name \'{actualParamName}\', but a parameter with that"
                                                 + $" identify has already been encountered under the name \'{registeredParam.Name}\'.");
             }
@@ -335,20 +330,5 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             registeredParam.Name = actualParamName;
             return true;
         }
-
-
-        private void ValidateactivitySpanId(string activitySpanId, AvailabilityTestInfo availabilityTestInfo)
-        {
-            if (! activitySpanId.Equals(availabilityTestInfo.AvailabilityResult.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"The {nameof(availabilityTestInfo.AvailabilityResult.Id)} of"
-                                                  + $" the {nameof(availabilityTestInfo.AvailabilityResult)} does not match the"
-                                                  + $" span Id of the activity span associated with this function:"
-                                                  + $" {nameof(availabilityTestInfo.AvailabilityResult)}.{nameof(availabilityTestInfo.AvailabilityResult.Id)}"
-                                                  + $"=\"{availabilityTestInfo.AvailabilityResult.Id}\";"
-                                                  + $" {nameof(activitySpanId)}=\"{activitySpanId}\".");
-            }                                            
-        }
     }
-
 }

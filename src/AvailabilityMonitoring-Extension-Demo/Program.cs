@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 
-using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring;
+using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.Extensions;
 
 namespace AvailabilityMonitoringExtensionDemo
 {

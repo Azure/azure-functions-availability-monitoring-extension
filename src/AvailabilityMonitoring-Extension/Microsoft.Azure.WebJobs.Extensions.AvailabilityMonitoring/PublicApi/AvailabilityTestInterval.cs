@@ -41,7 +41,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         internal static int Parse(string testIntervalSpec)
         {
             // Ensure not null:
-            testIntervalSpec = Convert.NotNullOrWord(testIntervalSpec);
+            testIntervalSpec = Format.NotNullOrWord(testIntervalSpec);
 
             // Remove '%' (if any) and trim:
             testIntervalSpec = RemoveEnclosingNameResolverTags(testIntervalSpec);

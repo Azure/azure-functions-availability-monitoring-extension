@@ -51,16 +51,16 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         }
 
         public AvailabilityTestInfo(AvailabilityTelemetry availabilityResult)
-            : this(Convert.NotNullOrWord(availabilityResult?.Name),
+            : this(Format.NotNullOrWord(availabilityResult?.Name),
                    Convert.GetPropertyOrNullWord(availabilityResult, "WebtestArmResourceName"),
-                   Convert.NotNullOrWord(availabilityResult?.RunLocation),
+                   Format.NotNullOrWord(availabilityResult?.RunLocation),
                    Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"))
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
             this.StartTime = availabilityResult.Timestamp;
             this.AvailabilityResult = availabilityResult;
-            this.Identity = OutputTelemetryFormat.GetAvailabilityTestInfoIdentity(availabilityResult);
+            this.Identity = Format.GetAvailabilityTestInfoIdentity(availabilityResult);
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                                   + $"/features/{this.TestArmResourceName}"
                                                                   + $"/locations/{this.LocationId}";
 
-            OutputTelemetryFormat.AddAvailabilityTestInfoIdentity(availabilityResult, Identity);
+            Format.AddAvailabilityTestInfoIdentity(availabilityResult, Identity);
 
             return availabilityResult;
         }
