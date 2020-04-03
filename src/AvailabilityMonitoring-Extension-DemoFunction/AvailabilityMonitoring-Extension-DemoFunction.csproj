@@ -5,6 +5,7 @@
     <RootNamespace>AvailabilityMonitoring_Extension_DemoFunction</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.WebJobs.Extensions" Version="3.0.6" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.31" />
   </ItemGroup>
   <ItemGroup>

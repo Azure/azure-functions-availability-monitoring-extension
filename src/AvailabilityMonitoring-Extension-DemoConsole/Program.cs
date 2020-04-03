@@ -44,7 +44,6 @@ namespace AvailabilityMonitoringExtensionDemo
                         })
                     .ConfigureServices((serviceCollection) =>
                         {
-                            //serviceCollection.AddSingleton(typeof(AvailabilityMonitoringDemo01));
                         })
                     .UseConsoleLifetime();
 

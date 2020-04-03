@@ -44,7 +44,12 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             // Start activity:
             string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
-            invocationState.ActivitySpan = new Activity(activityName).Start();
+
+
+            Activity a = new Activity(activityName);
+            Activity b = a.Start();
+
+            invocationState.ActivitySpan = a;
             string activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
             
             // Start the timer:

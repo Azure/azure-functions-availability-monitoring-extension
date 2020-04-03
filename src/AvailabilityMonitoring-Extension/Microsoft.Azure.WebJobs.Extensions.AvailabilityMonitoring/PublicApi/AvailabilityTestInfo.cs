@@ -10,8 +10,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         [JsonProperty]
         public string TestDisplayName { get; }
 
-        [JsonProperty]
-        public string TestArmResourceName { get; }
+        //[JsonProperty]
+        //public string TestArmResourceName { get; }
 
         [JsonProperty]
         public string LocationDisplayName { get; }
@@ -30,17 +30,17 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         public AvailabilityTestInfo(
                     string testDisplayName,
-                    string testArmResourceName, 
+                    //string testArmResourceName, 
                     string locationDisplayName, 
                     string locationId)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
-            Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
+            //Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
             Validate.NotNullOrWhitespace(locationDisplayName, nameof(locationDisplayName));
             Validate.NotNullOrWhitespace(locationId, nameof(locationId));
 
             this.TestDisplayName = testDisplayName;
-            this.TestArmResourceName = testArmResourceName;
+            //this.TestArmResourceName = testArmResourceName;
             this.LocationDisplayName = locationDisplayName;
             this.LocationId = locationId;
             this.StartTime = default(DateTimeOffset);
@@ -52,7 +52,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         public AvailabilityTestInfo(AvailabilityTelemetry availabilityResult)
             : this(Format.NotNullOrWord(availabilityResult?.Name),
-                   Convert.GetPropertyOrNullWord(availabilityResult, "WebtestArmResourceName"),
+                   //Convert.GetPropertyOrNullWord(availabilityResult, "WebtestArmResourceName"),
                    Format.NotNullOrWord(availabilityResult?.RunLocation),
                    Convert.GetPropertyOrNullWord(availabilityResult, "WebtestLocationId"))
         {
@@ -69,7 +69,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         [JsonConstructor]
         private AvailabilityTestInfo(
                    string testDisplayName,
-                   string testArmResourceName,
+                   //string testArmResourceName,
                    string locationDisplayName,
                    string locationId,
                    Guid identity,
@@ -77,13 +77,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                    AvailabilityTelemetry availabilityResult)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
-            Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
+            //Validate.NotNullOrWhitespace(testArmResourceName, nameof(testArmResourceName));
             Validate.NotNullOrWhitespace(locationDisplayName, nameof(locationDisplayName));
             Validate.NotNullOrWhitespace(locationId, nameof(locationId));
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
 
             this.TestDisplayName = testDisplayName;
-            this.TestArmResourceName = testArmResourceName;
+            //this.TestArmResourceName = testArmResourceName;
             this.LocationDisplayName = locationDisplayName;
             this.LocationId = locationId;
             this.Identity = identity;
@@ -99,8 +99,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         private AvailabilityTelemetry CreateNewAvailabilityResult()
         {
-            const string mockApplicationInsightsAppId = "00000000-0000-0000-0000-000000000000";
-            const string mockApplicationInsightsArmResourceName = "Application-Insights-Component";
+            //const string mockApplicationInsightsAppId = "00000000-0000-0000-0000-000000000000";
+            //const string mockApplicationInsightsArmResourceName = "Application-Insights-Component";
 
             var availabilityResult = new AvailabilityTelemetry();
 
@@ -111,13 +111,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             availabilityResult.Name = this.TestDisplayName;
             availabilityResult.RunLocation = this.LocationDisplayName;
 
-            availabilityResult.Properties["SyntheticMonitorId"] = $"default_{this.TestArmResourceName}_{this.LocationId}";
-            availabilityResult.Properties["WebtestArmResourceName"] = this.TestArmResourceName;
+            //availabilityResult.Properties["SyntheticMonitorId"] = $"default_{this.TestArmResourceName}_{this.LocationId}";
+            //availabilityResult.Properties["WebtestArmResourceName"] = this.TestArmResourceName;
             availabilityResult.Properties["WebtestLocationId"] = this.LocationId;
-            availabilityResult.Properties["SourceId"] = $"sid://{mockApplicationInsightsAppId}.visualstudio.com"
-                                                                  + $"/applications/{mockApplicationInsightsArmResourceName}"
-                                                                  + $"/features/{this.TestArmResourceName}"
-                                                                  + $"/locations/{this.LocationId}";
+            //availabilityResult.Properties["SourceId"] = $"sid://{mockApplicationInsightsAppId}.visualstudio.com"
+            //                                                      + $"/applications/{mockApplicationInsightsArmResourceName}"
+            //                                                      + $"/features/{this.TestArmResourceName}"
+            //                                                      + $"/locations/{this.LocationId}";
 
             Format.AddAvailabilityTestInfoIdentity(availabilityResult, Identity);
 
