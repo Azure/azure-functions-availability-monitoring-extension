@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Exte
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoFunction", "AvailabilityMonitoring-Extension-DemoFunction\AvailabilityMonitoring-Extension-DemoFunction.csproj", "{32B33932-2F92-4236-A286-3A085781E11C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvailabilityMonitoring-Extension-MonitoredAppSample", "AvailabilityMonitoring-Extension-MonitoredAppSample\AvailabilityMonitoring-Extension-MonitoredAppSample.csproj", "{D52BC15A-37C0-45A5-94C5-1AC546785846}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-MonitoredAppSample", "AvailabilityMonitoring-Extension-MonitoredAppSample\AvailabilityMonitoring-Extension-MonitoredAppSample.csproj", "{D52BC15A-37C0-45A5-94C5-1AC546785846}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

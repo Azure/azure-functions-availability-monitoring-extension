@@ -8,6 +8,7 @@ using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
@@ -17,11 +18,15 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
     {
         private readonly TelemetryClient _telemetryClient;
+        private readonly ILogger _log;
 
-        public FunctionInvocationManagementFilter(TelemetryClient telemetryClient)
+        public FunctionInvocationManagementFilter(TelemetryClient telemetryClient, ILogger log)
         {
             Validate.NotNull(telemetryClient, nameof(telemetryClient));
+            Validate.NotNull(log, nameof(log));
+
             _telemetryClient = telemetryClient;
+            _log = log;
         }
 
 #pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
@@ -44,12 +49,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             // Start activity:
             string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
-
-
-            Activity a = new Activity(activityName);
-            Activity b = a.Start();
-
-            invocationState.ActivitySpan = a;
+            invocationState.ActivitySpan = new Activity(activityName).Start();
             string activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
             
             // Start the timer:

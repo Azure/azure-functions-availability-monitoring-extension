@@ -24,6 +24,7 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample
         {
             services.AddControllersWithViews();
             services.AddApplicationInsightsTelemetry();
+            services.AddControllers();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -38,6 +39,8 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample
                 app.UseExceptionHandler("/Home/Error");
             }
             app.UseStaticFiles();
+
+            //app.UseHttpsRedirection();
 
             app.UseRouting();
 
