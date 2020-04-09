@@ -8,6 +8,21 @@
     <!-- @ToDo Need to remove this later! -->
     <SkipFunctionsDepsCopy>true</SkipFunctionsDepsCopy>
   </PropertyGroup>
+  
+  <Import Project="Version.props" />
+
+  <PropertyGroup>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Authors>Microsoft Application Insights</Authors>
+    <Company>Microsoft</Company>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Product>Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring</Product>
+    <RepositoryUrl>https://github.com/Azure/azure-functions-availability-monitoring-extension</RepositoryUrl>
+    <PackageTags>Microsoft Azure WebJobs AzureFunctions AzureMonitor CodedAvailabilityTest AvailabilityTest Synthetic SyntheticMonitor SyntheticTest Application Insights ApplicationInsights Availability</PackageTags>
+    <Description></Description>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions" Version="3.0.6" />
