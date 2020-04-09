@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
@@ -18,15 +19,11 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
     {
         private readonly TelemetryClient _telemetryClient;
-        private readonly ILogger _log;
 
         public FunctionInvocationManagementFilter(TelemetryClient telemetryClient, ILogger log)
         {
             Validate.NotNull(telemetryClient, nameof(telemetryClient));
-            Validate.NotNull(log, nameof(log));
-
             _telemetryClient = telemetryClient;
-            _log = log;
         }
 
 #pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
@@ -45,44 +42,81 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 return Task.CompletedTask;
             }
 
-            IdentifyManagedParameters(invocationState, executingContext.Arguments);
+            ILogger log = executingContext.Logger;
+            string activitySpanId;
 
-            // Start activity:
-            string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
-            invocationState.ActivitySpan = new Activity(activityName).Start();
-            string activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
-            
-            // Start the timer:
-            DateTimeOffset startTime = DateTimeOffset.Now;
-
-            // Look at every paramater and update it with the activity ID and the start time:
-            foreach (FunctionInvocationState.Parameter regRaram in invocationState.Parameters.Values)
+            IDisposable logScope = log?.BeginScope(new Dictionary<string, string>()
+                    {
+                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(executingContext.FunctionInstanceId),
+                    });
+            try
             {
-                regRaram.AvailabilityTestInfo.AvailabilityResult.Id = activitySpanId;
+                log?.LogInformation("Coded Availability Test setup started.");
 
-                if (regRaram.Type.Equals(typeof(AvailabilityTestInfo)))
+                IdentifyManagedParameters(invocationState, executingContext.Arguments, log);
+
+                // Start activity:
+                string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
+                invocationState.ActivitySpan = new Activity(activityName).Start();
+                activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
+
+                log?.LogInformation($"Started activity (name=\"{activityName}\", spanId=\"{activitySpanId}\")."
+                                  + $" Coded Availability Test setup completed."
+                                  + $" About to invoke Coded Availabillity Test.");
+            }
+            finally
+            {
+                logScope?.Dispose();
+            }
+
+            invocationState.LoggerScope = log?.BeginScope(new Dictionary<string, string>()
+                    {
+                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(executingContext.FunctionInstanceId),
+                        ["Microsoft.Azure.AvailabilityMonitoring.TestDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.TestDisplayName),
+                        ["Microsoft.Azure.AvailabilityMonitoring.LocationDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationDisplayName),
+                        ["Microsoft.Azure.AvailabilityMonitoring.LocationId"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationId)
+                    });
+
+            try
+            { 
+                // Start the timer:
+                DateTimeOffset startTime = DateTimeOffset.Now;
+
+                // Look at every paramater and update it with the activity ID and the start time:
+                foreach (FunctionInvocationState.Parameter regRaram in invocationState.Parameters.Values)
                 {
-                    AvailabilityTestInfo actParam = (AvailabilityTestInfo) executingContext.Arguments[regRaram.Name];
-                    actParam.AvailabilityResult.Id = activitySpanId;
-                    actParam.SetStartTime(startTime);
+                    regRaram.AvailabilityTestInfo.AvailabilityResult.Id = activitySpanId;
+
+                    if (regRaram.Type.Equals(typeof(AvailabilityTestInfo)))
+                    {
+                        AvailabilityTestInfo actParam = (AvailabilityTestInfo) executingContext.Arguments[regRaram.Name];
+                        actParam.AvailabilityResult.Id = activitySpanId;
+                        actParam.SetStartTime(startTime);
+                    }
+                    else if (regRaram.Type.Equals(typeof(AvailabilityTelemetry)))
+                    {
+                        AvailabilityTelemetry actParam = (AvailabilityTelemetry) executingContext.Arguments[regRaram.Name];
+                        actParam.Id = activitySpanId;
+                        actParam.Timestamp = startTime.ToUniversalTime();
+                    }
+                    else if (regRaram.Type.Equals(typeof(JObject)))
+                    {
+                        JObject actParam = (JObject) executingContext.Arguments[regRaram.Name];
+                        actParam["AvailabilityResult"]["Id"].Replace(JToken.FromObject(activitySpanId));
+                        actParam["StartTime"].Replace(JToken.FromObject(startTime));
+                        actParam["AvailabilityResult"]["Timestamp"].Replace(JToken.FromObject(startTime.ToUniversalTime()));
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Unexpected managed parameter type: \"{regRaram.Type.FullName}\".");
+                    }
                 }
-                else if (regRaram.Type.Equals(typeof(AvailabilityTelemetry)))
-                {
-                    AvailabilityTelemetry actParam = (AvailabilityTelemetry) executingContext.Arguments[regRaram.Name];
-                    actParam.Id = activitySpanId;
-                    actParam.Timestamp = startTime.ToUniversalTime();
-                }
-                else if (regRaram.Type.Equals(typeof(JObject)))
-                {
-                    JObject actParam = (JObject) executingContext.Arguments[regRaram.Name];
-                    actParam["AvailabilityResult"]["Id"].Replace(JToken.FromObject(activitySpanId));
-                    actParam["StartTime"].Replace(JToken.FromObject(startTime));
-                    actParam["AvailabilityResult"]["Timestamp"].Replace(JToken.FromObject(startTime.ToUniversalTime()));
-                }
-                else
-                {
-                    throw new InvalidOperationException($"Unexpected managed parameter type: \"{regRaram.Type.FullName}\".");
-                }
+            }
+            catch(Exception ex)
+            {
+                invocationState.LoggerScope.Dispose();
+                invocationState.ActivitySpan.Stop();
+                ExceptionDispatchInfo.Capture(ex).Throw();
             }
 
             // Done:
@@ -108,88 +142,147 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             // Measure user time (plus the minimal runtime overhead within the bracket of this binding):
             DateTimeOffset endTime = DateTimeOffset.Now;
 
-            // Stop activity:
-            string activitySpadId = invocationState.ActivitySpan.SpanId.ToHexString();
-            invocationState.ActivitySpan.Stop();
+            ILogger log = executedContext.Logger;
 
-            // Get Function result (failed or not):
-            bool errorOcurred = ! executedContext.FunctionResult.Succeeded;
-            Exception error = errorOcurred 
-                                    ? executedContext.FunctionResult.Exception
-                                    : null;
+            // Stop logging scope:
+            invocationState.LoggerScope?.Dispose();
 
-            // Look at every paramater that was originally tagged with the attribute:
-            foreach (FunctionInvocationState.Parameter registeredRaram in invocationState.Parameters.Values)
+            IDisposable logScope = log?.BeginScope(new Dictionary<string, string>()
+                    {
+                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(invocationState.FunctionInstanceId),
+                        ["Microsoft.Azure.AvailabilityMonitoring.TestDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.TestDisplayName),
+                        ["Microsoft.Azure.AvailabilityMonitoring.LocationDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationDisplayName),
+                        ["Microsoft.Azure.AvailabilityMonitoring.LocationId"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationId)
+                    });
+            try
             {
-                // Find the actual parameter value in the function arguments (named lookup):
-                if (false == executedContext.Arguments.TryGetValue(registeredRaram.Name, out object functionOutputParam))
+                log?.LogInformation("Coded Availability Test completed. Processing results.");
+
+                // Stop activity:
+                string activitySpadId = invocationState.ActivitySpan.SpanId.ToHexString();
+                invocationState.ActivitySpan.Stop();
+
+                // Get Function result (failed or not):
+                bool errorOcurred = ! executedContext.FunctionResult.Succeeded;
+                Exception error = errorOcurred 
+                                        ? executedContext.FunctionResult.Exception
+                                        : null;
+
+                log?.LogInformation($"Stopped activity (name=\"{ invocationState.ActivitySpan.OperationName}\", spanId=\"{activitySpadId}\"). Overall CAT result: " +
+                                    ((errorOcurred || error != null)
+                                        ? $"errorOcurred={errorOcurred}; error=\"{error.GetType().Name}: \'{error.Message}\'\""
+                                        : $"errorOcurred={errorOcurred}"));
+
+                log?.LogInformation($"Starting to process {invocationState.Parameters.Count} result-parameters tagged with {nameof(AvailabilityTestAttribute)}.");
+
+                List<Exception> processingErrors = null;
+
+                // Look at every paramater that was originally tagged with the attribute:
+                foreach (FunctionInvocationState.Parameter registeredRaram in invocationState.Parameters.Values)
                 {
-                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", but it was not found in the"
-                                                      + $" actual argument list after the function invocation.");
-                }
-
-                if (functionOutputParam == null)
-                {
-                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
-                                                      + $" actual argument list after the function invocation was null.");
-                }
-
-                // Based on parameter type, convert it to AvailabilityTestInfo and then process:
-
-                bool functionOutputParamProcessed = false;
-
-                {
-                    // If this argument is a AvailabilityTestInfo:
-                    var testInfoParameter = functionOutputParam as AvailabilityTestInfo;
-                    if (testInfoParameter != null)
+                    try
                     {
-                        ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                        functionOutputParamProcessed = true;
-                    }
-                }
+                        log?.LogInformation($"Starting to process result-parameter of type \"{registeredRaram.Type.Name}\".");
 
-                {
-                    // If this argument is a AvailabilityTelemetry:
-                    var availabilityResultParameter = functionOutputParam as AvailabilityTelemetry;
-                    if (availabilityResultParameter != null)
-                    {
-                        AvailabilityTestInfo testInfoParameter = Convert.AvailabilityTelemetryToAvailabilityTestInvocation(availabilityResultParameter);
-                        ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                        functionOutputParamProcessed = true;
-                    }
-                }
-
-                {
-                    // If this argument is a JObject:
-                    var jObjectParameter = functionOutputParam as JObject;
-                    if (jObjectParameter != null)
-                    {
-                        // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
-                        AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
-                        if (testInfoParameter != null)
+                        // Find the actual parameter value in the function arguments (named lookup):
+                        if (false == executedContext.Arguments.TryGetValue(registeredRaram.Name, out object functionOutputParam))
                         {
-                            ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                            functionOutputParamProcessed = true;
+                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", but it was not found in the"
+                                                              + $" actual argument list after the function invocation.");
                         }
+
+                        if (functionOutputParam == null)
+                        {
+                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
+                                                              + $" actual argument list after the function invocation was null.");
+                        }
+
+                        // Based on parameter type, convert it to AvailabilityTestInfo and then process:
+
+                        bool functionOutputParamProcessed = false;
+
+                        {
+                            // If this argument is a AvailabilityTestInfo:
+                            var testInfoParameter = functionOutputParam as AvailabilityTestInfo;
+                            if (testInfoParameter != null)
+                            {
+                                ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
+                                functionOutputParamProcessed = true;
+                            }
+                        }
+
+                        {
+                            // If this argument is a AvailabilityTelemetry:
+                            var availabilityResultParameter = functionOutputParam as AvailabilityTelemetry;
+                            if (availabilityResultParameter != null)
+                            {
+                                AvailabilityTestInfo testInfoParameter = Convert.AvailabilityTelemetryToAvailabilityTestInvocation(availabilityResultParameter);
+                                ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
+                                functionOutputParamProcessed = true;
+                            }
+                        }
+
+                        {
+                            // If this argument is a JObject:
+                            var jObjectParameter = functionOutputParam as JObject;
+                            if (jObjectParameter != null)
+                            {
+                                // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
+                                AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
+                                if (testInfoParameter != null)
+                                {
+                                    ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
+                                    functionOutputParamProcessed = true;
+                                }
+                            }
+                        }
+
+                        if (false == functionOutputParamProcessed)
+                        {
+                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
+                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
+                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
+                                                              + $" actual argument list after the function invocation cannot be processed"
+                                                              + $" ({Format.NotNullOrWord(functionOutputParam?.GetType()?.Name)}).");
+                        }
+
+                        log?.LogInformation($"Completed to process result-parameter of type \"{registeredRaram.Type.Name}\".");
+                    }
+                    catch(Exception ex)
+                    {
+                        log?.LogInformation($"Error while processing result-parameter of type \"{registeredRaram.Type.Name}\".");
+                        processingErrors = processingErrors ?? new List<Exception>();
+                        processingErrors.Add(ex);
                     }
                 }
 
-                if (false == functionOutputParamProcessed)
+                log?.LogInformation($"Completed processing result-parameters. Errors: {(processingErrors == null ? 0 : processingErrors.Count)}.");
+
+                // Make sure everyting we trracked is put on the wire, in case the Function runtime shuts down:
+                _telemetryClient.Flush();
+
+                if (processingErrors != null)
                 {
-                    throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                      + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                      + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
-                                                      + $" actual argument list after the function invocation cannot be processed"
-                                                      + $" ({Format.NotNullOrWord(functionOutputParam?.GetType()?.Name)}).");
+                    if (processingErrors.Count == 1)
+                    {
+                        ExceptionDispatchInfo.Capture(processingErrors[0]).Throw();
+                    }
+                    else
+                    {
+                        throw new AggregateException($"Failed to process {processingErrors.Count} out of {invocationState.Parameters.Count}"
+                                                   + $" result-parameters tagged with {nameof(AvailabilityTestAttribute)}.",
+                                                     processingErrors);
+                    }
                 }
             }
-
-            // Make sure everyting we trracked is put on the wire, in case the Function runtime shuts down:
-            _telemetryClient.Flush();
+            finally
+            {
+                logScope?.Dispose();
+            }
 
             return Task.CompletedTask;
         }
@@ -199,7 +292,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             bool errorOcurred, 
                             Exception error, 
                             AvailabilityTestInfo functionOutputParam, 
-                            string activitySpadId,
+                            string activitySpanId,
                             CancellationToken cancelControl)
         {
             if (errorOcurred)
@@ -234,12 +327,15 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             // Send the availability result to the backend:
             Format.RemoveAvailabilityTestInfoIdentity(functionOutputParam.AvailabilityResult);
-            functionOutputParam.AvailabilityResult.Id = activitySpadId;
+            functionOutputParam.AvailabilityResult.Id = activitySpanId;
             _telemetryClient.TrackAvailability(functionOutputParam.AvailabilityResult);
         }
 
-        private void IdentifyManagedParameters(FunctionInvocationState invocationState, IReadOnlyDictionary<string, object> actualFunctionParameters)
+        private void IdentifyManagedParameters(FunctionInvocationState invocationState, IReadOnlyDictionary<string, object> actualFunctionParameters, ILogger log)
         {
+            log?.LogInformation($"Starting to process {actualFunctionParameters.Count} function parameters."
+                              + $" Expecting to identify {invocationState.Parameters.Count} {nameof(AvailabilityTestAttribute)}-tagged parameters.");
+
             int identifiedParameterCount = 0;
             // Look at each argument:
             if (actualFunctionParameters != null)
@@ -260,7 +356,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             // Find registered parameter with the right ID, validate, and store its name:
                             Guid actualFunctionParameterId = testInfoParameter.Identity;
                             if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
-                            { 
+                            {
+                                log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{testInfoParameter.GetType().Name}\".");
                                 identifiedParameterCount++;
                             }
                         }
@@ -275,6 +372,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             Guid actualFunctionParameterId = Format.GetAvailabilityTestInfoIdentity(availabilityResultParameter);
                             if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
                             {
+                                log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{availabilityResultParameter.GetType().Name}\".");
                                 identifiedParameterCount++;
                             }
                         }
@@ -293,6 +391,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                 Guid actualFunctionParameterId = testInfoParameter.Identity;
                                 if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
                                 {
+                                    log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{jObjectParameter.GetType().Name}\".");
                                     identifiedParameterCount++;
                                 }
                             }
@@ -300,6 +399,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                     }
                 }
             }
+
+            log?.LogInformation($"Completed processing {actualFunctionParameters.Count} function parameters."
+                              + $" {identifiedParameterCount} marked with {nameof(AvailabilityTestAttribute)} identified.");
 
             if (identifiedParameterCount != invocationState.Parameters.Count)
             {

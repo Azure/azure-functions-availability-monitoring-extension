@@ -34,7 +34,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         private readonly ConcurrentDictionary<Guid, FunctionInvocationState.Parameter> _paremeters = new ConcurrentDictionary<Guid, FunctionInvocationState.Parameter>();
         private int _currentStage = (int)FunctionInvocationState.Stage.New;
 
-        private string _activitySpanName = null;
+        private Parameter _firstParameter = null;
 
         public Guid FunctionInstanceId { get; }
         public string FormattedFunctionInstanceId { get { return Format.Guid (FunctionInstanceId); } }
@@ -46,12 +46,31 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public DateTimeOffset StartTime { get; set; }
 
         public Activity ActivitySpan { get; set; }
+        
+        public IDisposable LoggerScope { get; set; }
 
-        public string ActivitySpanName { get { return _activitySpanName; } }
+        public FunctionInvocationState.Parameter FirstParameter { get { return _firstParameter; } }
+
+        public string ActivitySpanName
+        {
+            get
+            {
+                Parameter firstParam = _firstParameter;
+                if (firstParam == null)
+                {
+                    return null;
+                }
+
+                return Format.ActivitySpanName(firstParam.AvailabilityTestInfo.TestDisplayName, firstParam.AvailabilityTestInfo.LocationDisplayName);
+            }
+        }
+
 
         public FunctionInvocationState(Guid functionInstanceId)
         {
             this.FunctionInstanceId = functionInstanceId;
+            this.ActivitySpan = null;
+            this.LoggerScope = null;
         }
 
         public void AddManagedParameter(AvailabilityTestInfo availabilityTestInfo, Type functionParameterType)
@@ -65,10 +84,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                   + $" {Stage.New}; however, {nameof(CurrentStage)} is {CurrentStage}.");
             }
 
-            string activitySpanName = Format.ActivitySpanName(availabilityTestInfo.TestDisplayName, availabilityTestInfo.LocationDisplayName);
-            Interlocked.CompareExchange(ref _activitySpanName, activitySpanName, null);
-
-            _paremeters.TryAdd(availabilityTestInfo.Identity, new Parameter(availabilityTestInfo, functionParameterType));
+            var parameterInfo = new Parameter(availabilityTestInfo, functionParameterType);
+            Interlocked.CompareExchange(ref _firstParameter, parameterInfo, null);
+            _paremeters.TryAdd(availabilityTestInfo.Identity, parameterInfo);
         }
 
         public void Transition(FunctionInvocationState.Stage from, FunctionInvocationState.Stage to)

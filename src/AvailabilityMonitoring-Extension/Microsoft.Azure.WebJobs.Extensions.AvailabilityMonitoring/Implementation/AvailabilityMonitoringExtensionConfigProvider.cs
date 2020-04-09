@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.Azure.WebJobs.Description;
@@ -6,6 +7,7 @@ using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Bindings;
 using Microsoft.Azure.WebJobs.Host.Config;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
@@ -15,16 +17,20 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
     {
         private readonly IConfiguration _configuration;
         private readonly INameResolver _nameResolver;
+        //private readonly ILogger _log;
 
         public AvailabilityMonitoringExtensionConfigProvider(IConfiguration configuration, INameResolver nameResolver)
         {
             _configuration = configuration;
             _nameResolver = nameResolver;
+            //_log = log;
         }
 
         public void Initialize(ExtensionConfigContext context)
         {
             Validate.NotNull(context, nameof(context));
+
+            //_log?.LogInformation("Initializing Availability Monitoring Extension.");
 
             // FluentBindingRule<ApiAvailabilityTest> is marked as Obsolete, yet it is the type returned from AddBindingRule(..)
             // We could use "var", but one should NEVER use "var" except in Lync expressions
@@ -68,10 +74,34 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         private AvailabilityTestInfo CreateAndRegisterInvocation(AvailabilityTestAttribute attribute, ValueBindingContext context, Type functionParameterType)
         {
-            AvailabilityTestInfo availabilityTestInfo = CreateAvailabilityTestInfo(attribute, context);
+            //IDisposable logScope = _log?.BeginScope(new Dictionary<string, string>()
+            //{
+            //    ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(context.FunctionInstanceId),
+            //});
 
-            FunctionInvocationStateCache.SingeltonInstance.RegisterFunctionInvocation(context.FunctionInstanceId, availabilityTestInfo, functionParameterType);
-            return availabilityTestInfo;
+            //try
+            //{
+                //_log?.LogInformation($"Creating an Availability Test parameter of type \"{functionParameterType.Name}\" from an"
+                //                  + $" {nameof(AvailabilityTestAttribute)}("
+                //                  + $"{nameof(AvailabilityTestAttribute.TestDisplayName)}=\"{Format.NotNullOrWord(attribute.TestDisplayName)}\","
+                //                  + $"{nameof(AvailabilityTestAttribute.LocationDisplayName)}=\"{Format.NotNullOrWord(attribute.LocationDisplayName)}\","
+                //                  + $"{nameof(AvailabilityTestAttribute.LocationId)}=\"{Format.NotNullOrWord(attribute.LocationId)}\").");
+
+                AvailabilityTestInfo availabilityTestInfo = CreateAvailabilityTestInfo(attribute, context);
+
+                FunctionInvocationStateCache.SingeltonInstance.RegisterFunctionInvocation(context.FunctionInstanceId, availabilityTestInfo, functionParameterType);
+
+                //_log?.LogInformation($"Resolved settings and created a {nameof(AvailabilityTestInfo)}:"
+                //                 + $" {nameof(AvailabilityTestInfo.TestDisplayName)}=\"{Format.NotNullOrWord(availabilityTestInfo.TestDisplayName)}\","
+                //                 + $" {nameof(AvailabilityTestInfo.LocationDisplayName)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationDisplayName)}\","
+                //                 + $" {nameof(AvailabilityTestInfo.LocationId)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationId)}\".");
+
+                return availabilityTestInfo;
+            //}
+            //finally
+            //{
+            //    logScope?.Dispose();
+            //}
         }
 
         private AvailabilityTestInfo CreateAvailabilityTestInfo(AvailabilityTestAttribute attribute, ValueBindingContext context)

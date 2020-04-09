@@ -33,7 +33,9 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
                 }
             }
 
-            bool hasExpectedContent = responseContent.Contains("<title>Monitored Page</title>", StringComparison.OrdinalIgnoreCase);
+            bool hasExpectedContent = responseContent.Contains("<title>Monitored Page</title>", StringComparison.OrdinalIgnoreCase)
+                                        && responseContent.Contains("(App Version Id: 2)", StringComparison.OrdinalIgnoreCase);
+            
             testInfo.AvailabilityResult.Success = hasExpectedContent;
         }
     }
