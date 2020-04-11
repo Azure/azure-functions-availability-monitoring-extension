@@ -1,0 +1,81 @@
+﻿@model MonitoredPageViewModel
+
+@{
+    ViewData["Title"] = "Monitored Page";
+}
+<h1>@ViewData["Title"]</h1>
+
+<h2>Local Time</h2>
+
+<table>
+    <tr>
+        <td>Location info:</td>
+        <td>@Model.LocalTime.LocationInfo</td>
+    </tr>
+    <tr>
+        <td>UTC time:</td>
+        <td>@Model.LocalTime.UtcTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time:</td>
+        <td>@Model.LocalTime.LocalTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time zone:</td>
+        <td>@Model.LocalTime.LocalTimeZone</td>
+    </tr>
+</table>
+
+<h2>Public Time</h2>
+
+<table>
+    <tr>
+        <td>Location info:</td>
+        <td>@Model.PublicTime.LocationInfo</td>
+    </tr>
+    <tr>
+        <td>UTC time:</td>
+        <td>@Model.PublicTime.UtcTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time:</td>
+        <td>@Model.PublicTime.LocalTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time zone:</td>
+        <td>@Model.PublicTime.LocalTimeZone</td>
+    </tr>
+</table>
+
+<h2>Function Time</h2>
+
+<table>
+    <tr>
+        <td>Location info:</td>
+        <td>@Model.FunctionTime.LocationInfo</td>
+    </tr>
+    <tr>
+        <td>UTC time:</td>
+        <td>@Model.FunctionTime.UtcTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time:</td>
+        <td>@Model.FunctionTime.LocalTime.ToString("o")</td>
+    </tr>
+    <tr>
+        <td>Local time zone:</td>
+        <td>@Model.FunctionTime.LocalTimeZone</td>
+    </tr>
+</table>
+
+@*<h2>Local Environment</h2>
+
+<table>
+    @foreach (KeyValuePair<string, string> envVar in Model.LocalEnvironment)
+    {
+        <tr>
+            <td>@envVar.Key:</td>
+            <td>@envVar.Value</td>
+        </tr>
+    }
+</table>*@
