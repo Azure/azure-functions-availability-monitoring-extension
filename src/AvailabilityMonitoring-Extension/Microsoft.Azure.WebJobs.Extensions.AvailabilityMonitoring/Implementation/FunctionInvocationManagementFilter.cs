@@ -30,6 +30,12 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public Task OnExecutingAsync(FunctionExecutingContext executingContext, CancellationToken cancelControl)
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
         {
+            Console.WriteLine("Filter Entry Point: OnExecutingAsync");
+
+            Process proc = Process.GetCurrentProcess();
+            Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
+            Console.WriteLine($"FunctionInstanceId: \"{executingContext.FunctionInstanceId}\".");
+
             Validate.NotNull(executingContext, nameof(executingContext));
 
             // Check that the functionInstanceId is registered.
@@ -37,6 +43,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             bool isAvailabilityTest = FunctionInvocationStateCache.SingeltonInstance.TryStartFunctionInvocation(
                                                                                             executingContext.FunctionInstanceId,
                                                                                             out FunctionInvocationState invocationState);
+
+            Console.WriteLine($"isAvailabilityTest: \"{isAvailabilityTest}\".");
+
             if (! isAvailabilityTest)
             {
                 return Task.CompletedTask;
@@ -45,6 +54,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             ILogger log = executingContext.Logger;
             string activitySpanId;
 
+            Console.WriteLine($"invocationState.CurrentStage: \"{invocationState.CurrentStage}\".");
+            Console.WriteLine($"Log Type: \"{Format.NotNullOrWord(log?.GetType()?.Name)}\".");
+
             IDisposable logScope = log?.BeginScope(new Dictionary<string, string>()
                     {
                         ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(executingContext.FunctionInstanceId),
@@ -52,6 +64,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             try
             {
                 log?.LogInformation("Coded Availability Test setup started.");
+                Console.WriteLine("Coded Availability Test setup started.");
 
                 IdentifyManagedParameters(invocationState, executingContext.Arguments, log);
 
@@ -127,6 +140,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public Task OnExecutedAsync(FunctionExecutedContext executedContext, CancellationToken cancelControl)
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
         {
+            Console.WriteLine("Filter Entry Point: OnExecutedAsync");
+
             Validate.NotNull(executedContext, nameof(executedContext));
 
             // Check that the functionInstanceId is registered.
@@ -157,6 +172,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             try
             {
                 log?.LogInformation("Coded Availability Test completed. Processing results.");
+                Console.WriteLine("Coded Availability Test completed. Processing results.");
 
                 // Stop activity:
                 string activitySpadId = invocationState.ActivitySpan.SpanId.ToHexString();

@@ -79,13 +79,21 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             //    ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(context.FunctionInstanceId),
             //});
 
+            Console.WriteLine($"CreateAndRegisterInvocation. FunctionInstanceId: \"{context.FunctionInstanceId}\".");
+
             //try
             //{
-                //_log?.LogInformation($"Creating an Availability Test parameter of type \"{functionParameterType.Name}\" from an"
-                //                  + $" {nameof(AvailabilityTestAttribute)}("
-                //                  + $"{nameof(AvailabilityTestAttribute.TestDisplayName)}=\"{Format.NotNullOrWord(attribute.TestDisplayName)}\","
-                //                  + $"{nameof(AvailabilityTestAttribute.LocationDisplayName)}=\"{Format.NotNullOrWord(attribute.LocationDisplayName)}\","
-                //                  + $"{nameof(AvailabilityTestAttribute.LocationId)}=\"{Format.NotNullOrWord(attribute.LocationId)}\").");
+            //_log?.LogInformation($"Creating an Availability Test parameter of type \"{functionParameterType.Name}\" from an"
+            //                  + $" {nameof(AvailabilityTestAttribute)}("
+            //                  + $"{nameof(AvailabilityTestAttribute.TestDisplayName)}=\"{Format.NotNullOrWord(attribute.TestDisplayName)}\","
+            //                  + $"{nameof(AvailabilityTestAttribute.LocationDisplayName)}=\"{Format.NotNullOrWord(attribute.LocationDisplayName)}\","
+            //                  + $"{nameof(AvailabilityTestAttribute.LocationId)}=\"{Format.NotNullOrWord(attribute.LocationId)}\").");
+
+                Console.WriteLine($"Creating an Availability Test parameter of type \"{functionParameterType.Name}\" from an"
+                                  + $" {nameof(AvailabilityTestAttribute)}("
+                                  + $"{nameof(AvailabilityTestAttribute.TestDisplayName)}=\"{Format.NotNullOrWord(attribute.TestDisplayName)}\","
+                                  + $"{nameof(AvailabilityTestAttribute.LocationDisplayName)}=\"{Format.NotNullOrWord(attribute.LocationDisplayName)}\","
+                                  + $"{nameof(AvailabilityTestAttribute.LocationId)}=\"{Format.NotNullOrWord(attribute.LocationId)}\").");
 
                 AvailabilityTestInfo availabilityTestInfo = CreateAvailabilityTestInfo(attribute, context);
 
@@ -96,7 +104,12 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 //                 + $" {nameof(AvailabilityTestInfo.LocationDisplayName)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationDisplayName)}\","
                 //                 + $" {nameof(AvailabilityTestInfo.LocationId)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationId)}\".");
 
-                return availabilityTestInfo;
+                Console.WriteLine($"Resolved settings and created a {nameof(AvailabilityTestInfo)}:"
+                                 + $" {nameof(AvailabilityTestInfo.TestDisplayName)}=\"{Format.NotNullOrWord(availabilityTestInfo.TestDisplayName)}\","
+                                 + $" {nameof(AvailabilityTestInfo.LocationDisplayName)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationDisplayName)}\","
+                                 + $" {nameof(AvailabilityTestInfo.LocationId)}=\"{Format.NotNullOrWord(availabilityTestInfo.LocationId)}\".");
+
+            return availabilityTestInfo;
             //}
             //finally
             //{
