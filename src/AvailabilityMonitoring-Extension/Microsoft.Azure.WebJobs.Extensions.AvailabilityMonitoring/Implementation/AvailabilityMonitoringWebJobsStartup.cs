@@ -3,7 +3,7 @@ using Microsoft.Azure.WebJobs.Hosting;
 using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring;
 using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.Extensions;
 
-[assembly: WebJobsStartup(typeof(AvailabilityMonitoringWebJobsStartup))]
+//[assembly: WebJobsStartup(typeof(AvailabilityMonitoringWebJobsStartup))]
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {

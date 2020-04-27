@@ -31,10 +31,11 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
         {
             Console.WriteLine("Filter Entry Point: OnExecutingAsync");
+            Console.WriteLine($"FunctionInstanceId: {executingContext.FunctionInstanceId}.");
 
             Process proc = Process.GetCurrentProcess();
             Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
-            Console.WriteLine($"FunctionInstanceId: \"{executingContext.FunctionInstanceId}\".");
+            return Task.CompletedTask;
 
             Validate.NotNull(executingContext, nameof(executingContext));
 
@@ -141,8 +142,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
         {
             Console.WriteLine("Filter Entry Point: OnExecutedAsync");
+            Console.WriteLine($"FunctionInstanceId: {executedContext.FunctionInstanceId}.");
 
             Validate.NotNull(executedContext, nameof(executedContext));
+            return Task.CompletedTask;
 
             // Check that the functionInstanceId is registered.
             // If not, this function does not have a parameter marked with AvailabilityTestAttribute. In that case there is nothing to do:
@@ -236,7 +239,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             var availabilityResultParameter = functionOutputParam as AvailabilityTelemetry;
                             if (availabilityResultParameter != null)
                             {
-                                AvailabilityTestInfo testInfoParameter = Convert.AvailabilityTelemetryToAvailabilityTestInvocation(availabilityResultParameter);
+                                AvailabilityTestInfo testInfoParameter = Convert.AvailabilityTelemetryToAvailabilityTestInfo(availabilityResultParameter);
                                 ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
                                 functionOutputParamProcessed = true;
                             }
@@ -248,7 +251,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             if (jObjectParameter != null)
                             {
                                 // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
-                                AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
+                                AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInfo(jObjectParameter);
                                 if (testInfoParameter != null)
                                 {
                                     ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
@@ -400,7 +403,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                         if (jObjectParameter != null)
                         {
                             // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
-                            AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
+                            AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInfo(jObjectParameter);
                             if (testInfoParameter != null)
                             {
                                 // Find registered parameter with the right ID, validate, and store its name:

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Microsoft.ApplicationInsights.DataContracts;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
@@ -30,20 +31,27 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             return propertyValue;
         }
 
-        public static JObject AvailabilityTestInvocationToJObject(AvailabilityTestInfo availabilityTestInvocation)
+        public static JObject AvailabilityTestInfoToJObject(AvailabilityTestInfo availabilityTestInfo)
         {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            JObject jObject = JObject.FromObject(availabilityTestInvocation);
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            JObject jObject = JObject.FromObject(availabilityTestInfo);
             return jObject;
         }
 
-        public static AvailabilityTestInfo JObjectToAvailabilityTestInvocation(JObject availabilityTestInvocation)
+        public static string AvailabilityTestInfoToString(AvailabilityTestInfo availabilityTestInfo)
         {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            string str = JsonConvert.SerializeObject(availabilityTestInfo, Formatting.Indented);
+            return str;
+        }
+
+        public static AvailabilityTestInfo JObjectToAvailabilityTestInfo(JObject availabilityTestInfo)
+        {
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
 
             try
             {
-                AvailabilityTestInfo stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInfo>();
+                AvailabilityTestInfo stronglyTypedTestInvocation = availabilityTestInfo.ToObject<AvailabilityTestInfo>();
                 return stronglyTypedTestInvocation;
             }
             catch(Exception)
@@ -67,13 +75,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             }
         }
 
-        public static AvailabilityTelemetry AvailabilityTestInvocationToAvailabilityTelemetry(AvailabilityTestInfo availabilityTestInvocation)
+        public static AvailabilityTelemetry AvailabilityTestInfoToAvailabilityTelemetry(AvailabilityTestInfo availabilityTestInfo)
         {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            return availabilityTestInvocation.AvailabilityResult;
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            return availabilityTestInfo.AvailabilityResult;
         }
 
-        public static AvailabilityTestInfo AvailabilityTelemetryToAvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
+        public static AvailabilityTestInfo AvailabilityTelemetryToAvailabilityTestInfo(AvailabilityTelemetry availabilityResult)
         {
             Validate.NotNull(availabilityResult, nameof(availabilityResult));
             return new AvailabilityTestInfo(availabilityResult);

@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AvailabilityMonitoring-Extension\Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.csproj" />
+    <ProjectReference Include="..\PlainSimplePrototype\PlainSimplePrototype.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">
