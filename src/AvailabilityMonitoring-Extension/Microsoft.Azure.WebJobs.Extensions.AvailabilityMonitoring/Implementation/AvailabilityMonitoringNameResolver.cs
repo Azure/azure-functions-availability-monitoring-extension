@@ -49,6 +49,5 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             string cronSpec = AvailabilityTestInterval.CreateCronIntervalSpecWithRandomOffset(minuteInterval);
             return cronSpec;
         }
-
     }
 }

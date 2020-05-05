@@ -1,471 +1,335 @@
-﻿using System;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Concurrent;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Description;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Azure.WebJobs.Host.Bindings;
 using Microsoft.Azure.WebJobs.Host.Config;
-using Microsoft.Azure.WebJobs.Host.Protocols;
-using Microsoft.Azure.WebJobs.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
-[assembly: WebJobsStartup(typeof(AvailabilityMonitoringExtension.PlainSimplePrototype.AvailabilityMonitoringWebJobsStartup))]
-
-namespace AvailabilityMonitoringExtension.PlainSimplePrototype
+namespace Microsoft.Azure.WebJobs.Script.WebHost
 {
-    internal class AvailabilityMonitoringWebJobsStartup : IWebJobsStartup
+    public static class AvailabilityTestWebJobsBuilderExtensions
     {
-        public void Configure(IWebJobsBuilder builder)
+        public static IWebJobsBuilder AddAvailabilityTests(this IWebJobsBuilder builder)
         {
-            builder.AddAvailabilityMonitoring();
-        }
-    }
+            builder.AddExtension<AvailabilityTestExtensionConfigProvider>();
 
-    public static class AvailabilityMonitoringtWebJobsBuilderExtensions
-    {
-        public static IWebJobsBuilder AddAvailabilityMonitoring(this IWebJobsBuilder builder)
-        {
-            builder.AddExtension<AvailabilityMonitoringExtensionConfigProvider>();
-
-            builder.Services.AddSingleton<IFunctionFilter, AvailabilityTestExceptionFilter>();
+            builder.Services.AddSingleton<IFunctionFilter, AvailabilityTestInvocationFilter>();
             builder.Services.AddSingleton<AvailabilityTestManager>();
 
             return builder;
         }
     }
 
-    [Binding]
-    [AttributeUsage(AttributeTargets.ReturnValue)]
-    public class AvailabilityTestResultAttribute : Attribute
-    {
-        public string TestDisplayName { get; set; }
-    }
-
-    public class AvailabilityTestResult
-    {
-        public string TestDisplayName { get; set; }
-        public string Message { get; set; }
-        public bool Success { get; set; }
-    }
-
-    [Extension("AvailabilityMonitoring.PlainSimplePrototype")]
-    internal class AvailabilityMonitoringExtensionConfigProvider : IExtensionConfigProvider
+    [Extension("AvailabilityTest")]
+    internal class AvailabilityTestExtensionConfigProvider : IExtensionConfigProvider
     {
         private readonly AvailabilityTestManager _manager;
 
-        public AvailabilityMonitoringExtensionConfigProvider(AvailabilityTestManager manager)
+        public AvailabilityTestExtensionConfigProvider(AvailabilityTestManager manager)
         {
             _manager = manager;
         }
 
-
-        public void Initialize(ExtensionConfigContext extensionConfigContext)
+        public void Initialize(ExtensionConfigContext context)
         {
-            extensionConfigContext.AddConverter<string, AvailabilityTestResult>( (jsonStr) => JsonConvert.DeserializeObject<AvailabilityTestResult>(jsonStr) );
+            // this binding provider exists soley to allow us to inspect functions to determine
+            // whether they're availability tests
+            // the fluent APIs below don't allow us to do this easily
+            context.AddBindingRule<AvailabilityTestContextAttribute>().Bind(new AvailabilityTestDiscoveryBindingProvider(_manager));
 
-            // FluentBindingRule<ApiAvailabilityTest> is marked as Obsolete, yet it is the type returned from AddBindingRule(..)
-            // We could use "var", but one should NEVER use "var" except in Lync expressions
-            // or when the type is clear from the *same* line to an unfamiliar reader.
-            // Neither is the case, so we use the type explicitly and work around the obsolete-warning.
-#pragma warning disable CS0618
-            FluentBindingRule<AvailabilityTestResultAttribute> rule = extensionConfigContext.AddBindingRule<AvailabilityTestResultAttribute>();
-#pragma warning restore CS0618 
+            var inputRule = context.AddBindingRule<AvailabilityTestContextAttribute>()
+                .BindToInput<AvailabilityTestContext>((AvailabilityTestContextAttribute attr, ValueBindingContext valueContext) =>
+                {
+                    // new up the context to be passed to user code
+                    var testContext = new AvailabilityTestContext
+                    {
+                        TestDisplayName = "My Test",
+                        StartTime = DateTime.UtcNow
+                    };
+                    return Task.FromResult<AvailabilityTestContext>(testContext);
+                });
 
-            var bindingProvider = new AvailabilityTestResultAttributeBindingProvider(_manager);
-            rule.Bind(bindingProvider);
-        }
-    }
-
-    internal class AvailabilityTestResultAttributeBindingProvider : IBindingProvider
-    {
-        private readonly AvailabilityTestManager _availabilityTestManager;
-
-        public AvailabilityTestResultAttributeBindingProvider(AvailabilityTestManager availabilityTestManager)
-        {
-            _availabilityTestManager = availabilityTestManager;
-        }
-
-        public Task<IBinding> TryCreateAsync(BindingProviderContext bindingProviderContext)
-        {
-            Console.WriteLine();
-            Console.WriteLine("Executing AvailabilityTestResultAttributeBindingProvider.TryCreateAsync(..).");
-
-            ParameterInfo parameter = bindingProviderContext.Parameter;
-
-            // Get and validate attribute:
-            AvailabilityTestResultAttribute attribute = parameter?.GetCustomAttribute<AvailabilityTestResultAttribute>(inherit: false);
-            if (attribute == null)
+            var outputRule = context.AddBindingRule<AvailabilityTestResultAttribute>();
+            outputRule.BindToCollector<AvailabilityTestResultAttribute, AvailabilityTestResult>((AvailabilityTestResultAttribute attr, ValueBindingContext valueContext) =>
             {
-                throw new InvalidOperationException($"An {nameof(AvailabilityTestResultAttributeBindingProvider)} should only be"
-                                                 + $" registered to bind parameters tagged with the {nameof(AvailabilityTestResultAttribute)}."
-                                                 + $" However, no such attribute was found.");
-            }
+                var collector = new AvailabilityTestCollector(_manager, valueContext.FunctionInstanceId);
+                return Task.FromResult<IAsyncCollector<AvailabilityTestResult>>(collector);
+            });
 
-            // Get and validate parameter type:
-
-            Type valueType = parameter.ParameterType;
-            string parameterName = parameter.Name ?? "null";
-
-            Console.WriteLine($"    valueType: {valueType.FullName}");
-
-            IBinding binding;
-
-            // Are all of these combinations below really possible/necesary?
-
-            // Binding to AvailabilityTestResult:
-            if (typeof(AvailabilityTestResult).IsAssignableFrom(valueType)
-                    || typeof(AvailabilityTestResult).MakeByRefType().IsAssignableFrom(valueType))
+            context.AddConverter<AvailabilityTestContext, string>(ctxt =>
             {
-                binding = new AvailabilityTestResultAttributeBinding<AvailabilityTestResult>(useCollector: false, _availabilityTestManager, attribute);
-            }
-            else if (typeof(IAsyncCollector<AvailabilityTestResult>).IsAssignableFrom(valueType)
-                    || typeof(IAsyncCollector<AvailabilityTestResult>).MakeByRefType().IsAssignableFrom(valueType))
+                return JsonConvert.SerializeObject(ctxt);
+            });
+
+            context.AddConverter<string, AvailabilityTestResult>(json =>
             {
-                binding = new AvailabilityTestResultAttributeBinding<AvailabilityTestResult>(useCollector: true, _availabilityTestManager, attribute);
-            }
-
-            // Binding to String:
-            else if (typeof(string).IsAssignableFrom(valueType)
-                    || typeof(string).MakeByRefType().IsAssignableFrom(valueType))
-            {
-                binding = new AvailabilityTestResultAttributeBinding<string>(useCollector: false, _availabilityTestManager, attribute);
-            }
-            else if (typeof(IAsyncCollector<string>).IsAssignableFrom(valueType)
-                    || typeof(IAsyncCollector<string>).MakeByRefType().IsAssignableFrom(valueType))
-            {
-                binding = new AvailabilityTestResultAttributeBinding<string>(useCollector: true, _availabilityTestManager, attribute);
-            }
-
-            // Binding to Boolean:
-            else if (typeof(bool).IsAssignableFrom(valueType)
-                    || typeof(bool).MakeByRefType().IsAssignableFrom(valueType))
-            {
-                binding = new AvailabilityTestResultAttributeBinding<bool>(useCollector: false, _availabilityTestManager, attribute);
-            }
-            else if (typeof(IAsyncCollector<bool>).IsAssignableFrom(valueType)
-                    || typeof(IAsyncCollector<bool>).MakeByRefType().IsAssignableFrom(valueType))
-            {
-                binding = new AvailabilityTestResultAttributeBinding<bool>(useCollector: true, _availabilityTestManager, attribute);
-            }
-
-            else
-            {
-                throw new ArgumentException($"Only values of the following types can be constructed based on the {nameof(AvailabilityTestResultAttribute)}:"
-                                          + $" \"{typeof(AvailabilityTestResult).Name}\","
-                                          + $" \"{typeof(IAsyncCollector<AvailabilityTestResult>).Name}\","
-                                          + $" \"{typeof(AvailabilityTestResult).MakeByRefType().Name}\","
-                                          + $" \"{typeof(IAsyncCollector<AvailabilityTestResult>).MakeByRefType().Name}\","
-                                          + $" plus any types for wich a Converter to the above types was registered."
-                                          + $" However, a value named \"{parameterName}\" of type \"{valueType.FullName}\" was requested.");
-            }
-
-            return Task.FromResult<IBinding>(binding);
-        }
-    }
-
-    internal class AvailabilityTestResultAttributeBinding<T> : IBinding
-    {
-        private readonly bool _useCollector;
-        private readonly AvailabilityTestManager _availabilityTestManager;
-        private readonly AvailabilityTestResultAttribute _attribute;
-
-        public AvailabilityTestResultAttributeBinding(bool useCollector, AvailabilityTestManager availabilityTestManager, AvailabilityTestResultAttribute attribute)
-        {
-            _useCollector = useCollector;
-            _availabilityTestManager = availabilityTestManager;
-            _attribute = attribute;
-        }
-
-        public bool FromAttribute
-        {
-            get { return true; }
-        }
-
-        public Task<IValueProvider> BindAsync(object value, ValueBindingContext valueBindingContext)
-        {
-            Console.WriteLine();
-            Console.WriteLine("Executing AvailabilityTestResultAttributeBinding.BindAsync(Object, ValueBindingContext).");
-
-            // I do not fully understand the purpose of this API. When is it called?
-            throw new NotImplementedException();
-        }
-
-        public Task<IValueProvider> BindAsync(BindingContext bindingContext)
-        {
-            Console.WriteLine();
-            Console.WriteLine("Executing AvailabilityTestResultAttributeBinding.BindAsync(BindingContext).");
-
-            Guid functionInstanceId = bindingContext.FunctionInstanceId;
-            Console.WriteLine($"    functionInstanceId: {functionInstanceId}.");
-
-            _availabilityTestManager.SetupAvailabilityTest(functionInstanceId, _attribute);
-
-            var binder = new AvailabilityTestResultValueBinder<T>(_useCollector, functionInstanceId, _availabilityTestManager);
-            return Task.FromResult<IValueProvider>(binder);
-        }
-
-        public ParameterDescriptor ToParameterDescriptor()
-        {
-            Console.WriteLine();
-            Console.WriteLine("Executing AvailabilityTestResultAttributeBinding.ToParameterDescriptor().");
-
-            // I do not fully understand the purpose of this API. What is a ParameterDescriptor used for?
-            return new ParameterDescriptor();
-        }
-    }
-
-    internal class AvailabilityTestResultValueBinder<T> : IValueBinder
-    {
-        private static readonly Type ValueType_Direct = typeof(AvailabilityTestResult);
-        private static readonly Type ValueType_Collector = typeof(AvailabilityTestResultAsyncCollector<T>);
-
-        private readonly bool _useCollector;
-        private readonly Guid _functionInstanceId;
-        private readonly AvailabilityTestManager _availabilityTestManager;
-
-        public AvailabilityTestResultValueBinder(bool useCollector, Guid functionInstanceId, AvailabilityTestManager availabilityTestManager)
-        {
-            _useCollector = useCollector;
-            _functionInstanceId = functionInstanceId;
-            _availabilityTestManager = availabilityTestManager;
-        }
-
-        public Type Type { get { return _useCollector ? ValueType_Collector : ValueType_Direct; } }
-
-        public Task<object> GetValueAsync()
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestResultValueBinder.GetValueAsync() {{_functionInstanceId={_functionInstanceId}}}.");
-
-            if (! _useCollector)
-            {
-                throw new InvalidOperationException($"This {nameof(AvailabilityTestResultValueBinder<T>)} has been configured to"
-                                                  + $" NOT use {nameof(IAsyncCollector<AvailabilityTestResult>)}."
-                                                  + $" It does not expect that {nameof(GetValueAsync)}(..) will be invoked."
-                                                  + $" This is because a {nameof(AvailabilityTestResultValueBinder<T>)} that is"
-                                                  + $" not using a collector is designed to"
-                                                  + $" only work with {nameof(AvailabilityTestResultAttribute)} which"
-                                                  + $" can only be applied to return values."
-                                                  + $" It is not expected that it will be invoked for initializing new values.");
-            }
-
-            IAsyncCollector<T> collector = new AvailabilityTestResultAsyncCollector<T>(_functionInstanceId, _availabilityTestManager);
-            return Task.FromResult<object>(collector);
-        }
-
-        public Task SetValueAsync(object valueToSet, CancellationToken cancelControl)
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestResultValueBinder.SetValueAsync() {{_functionInstanceId={_functionInstanceId}}}.");
-            Console.WriteLine($"    Specified valueToSet type: {valueToSet?.GetType()?.Name ?? "null"}");
-            Console.WriteLine($"    Specified valueToSet:      {valueToSet?.ToString() ?? "null"}");
-
-            if (_useCollector)
-            {
-                throw new InvalidOperationException($"This {nameof(AvailabilityTestResultValueBinder<T>)} has been configured to"
-                                                  + $" use {nameof(IAsyncCollector<AvailabilityTestResult>)}."
-                                                  + $" It does not expect that {nameof(SetValueAsync)}(..) will be invoked."
-                                                  + $" Instead, {nameof(IAsyncCollector<AvailabilityTestResult>.AddAsync)}(..) should be called.");
-            }
-
-            AvailabilityTestResult availabilityTestResult = Convert.ValueToAvailabilityTestResult(valueToSet);
-            _availabilityTestManager.CompleteAvailabilityTest(_functionInstanceId, availabilityTestResult);
-            return Task.CompletedTask;
-        }
-
-        public string ToInvokeString()
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestResultValueBinder.ToInvokeString() {{_functionInstanceId={_functionInstanceId}}}.");
-
-            // I do not fully understand the purpose of this API. When is it called?
-            return String.Empty;
-        }
-    }
-
-    internal class AvailabilityTestResultAsyncCollector<T> : IAsyncCollector<T>
-    {
-        private readonly Guid _functionInstanceId;
-        private readonly AvailabilityTestManager _availabilityTestManager;
-
-        public AvailabilityTestResultAsyncCollector(Guid functionInstanceId, AvailabilityTestManager availabilityTestManager)
-        {
-            _functionInstanceId = functionInstanceId;
-            _availabilityTestManager = availabilityTestManager;
-        }
-
-        public Task AddAsync(T item, CancellationToken cancelControl = default)
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestResultAsyncCollector.AddAsync() {{_functionInstanceId={_functionInstanceId}}}.");
-            Console.WriteLine($"    Specified valueToSet type: {item?.GetType()?.Name ?? "null"}");
-            Console.WriteLine($"    Specified valueToSet:      {item?.ToString() ?? "null"}");
-
-            AvailabilityTestResult availabilityTestResult = Convert.ValueToAvailabilityTestResult(item);
-            _availabilityTestManager.CompleteAvailabilityTest(_functionInstanceId, availabilityTestResult);
-            return Task.CompletedTask;
-        }
-
-        public Task FlushAsync(CancellationToken cancellationToken = default)
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestResultAsyncCollector.FlushAsync() {{_functionInstanceId={_functionInstanceId}}}.");
-
-            return Task.CompletedTask;
-        }
-    }
-
-    internal class AvailabilityTestExceptionFilter : IFunctionExceptionFilter
-    {
-        private readonly AvailabilityTestManager _availabilityTestManager;
-
-        public AvailabilityTestExceptionFilter(AvailabilityTestManager availabilityTestManager)
-        {
-            _availabilityTestManager = availabilityTestManager;
-        }
-
-        public Task OnExceptionAsync(FunctionExceptionContext exceptionContext, CancellationToken cancellationToken)
-        {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestExceptionFilter.OnExceptionAsync(..).");
-
-            Guid functionInstanceId = exceptionContext.FunctionInstanceId;
-            Console.WriteLine($"    functionInstanceId: {functionInstanceId}.");
-
-            _availabilityTestManager.FailAvailabilityTest(functionInstanceId, exceptionContext.Exception);
-            return Task.CompletedTask;
+                return JsonConvert.DeserializeObject<AvailabilityTestResult>(json);
+            });
         }
     }
 
     internal class AvailabilityTestManager
     {
-        private readonly ConcurrentDictionary<Guid, AvailabilityTestState> _runningTests = new ConcurrentDictionary<Guid, AvailabilityTestState>();
+        private readonly ConcurrentDictionary<string, bool> _availabilityTests = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<Guid, AvailabilityTestInvocationContext> _availabilityTestInvocationsContextMap = new ConcurrentDictionary<Guid, AvailabilityTestInvocationContext>();
 
-        internal void SetupAvailabilityTest(Guid functionInstanceId, AvailabilityTestResultAttribute attribute)
+        public AvailabilityTestManager()
         {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestManager.SetupAvailabilityTest(functionInstanceId: {functionInstanceId}).");
-
-            var testState = new AvailabilityTestState()
-            {
-                TestDisplayName = String.IsNullOrWhiteSpace(attribute?.TestDisplayName) ? "TestDisplayName not specified" : attribute?.TestDisplayName
-            };
-            
-            if (! _runningTests.TryAdd(functionInstanceId, testState))
-            {
-                throw new InvalidOperationException($"Availability Test with functionInstanceId = {functionInstanceId} is already running.");
-            }
-
-            Console.WriteLine($"    Setting up Activity.");
-            Console.WriteLine($"    Starting timers.");
         }
 
-        internal void CompleteAvailabilityTest(Guid functionInstanceId, AvailabilityTestResult availabilityTestResult)
+        public bool IsAvailabilityTest(string functionName)
         {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestManager.CompleteAvailabilityTest(functionInstanceId: {functionInstanceId}, ..).");
-
-            if (! _runningTests.TryRemove(functionInstanceId, out AvailabilityTestState availabilityTestState))
+            if (_availabilityTests.TryGetValue(functionName, out bool value))
             {
-                throw new InvalidOperationException($"Availability Test with functionInstanceId = {functionInstanceId} was not running.");
+                return value;
             }
 
-            // Users can optionally set some values; we use dynamic defaults if they do not:
-            if (String.IsNullOrWhiteSpace(availabilityTestResult.TestDisplayName))
-            {
-                availabilityTestResult.TestDisplayName = availabilityTestState.TestDisplayName;
-            }
-
-            TearDownCompleteAvailabilityTest(availabilityTestResult, availabilityTestState);
+            return false;
         }
 
-        internal void FailAvailabilityTest(Guid functionInstanceId, Exception error)
+        public bool IsAvailabilityTest(FunctionInvocationContext context)
         {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestManager.FailAvailabilityTest(functionInstanceId: {functionInstanceId}, error: {error?.GetType().Name ?? "null"}).");
-
-            if (! _runningTests.TryRemove(functionInstanceId, out AvailabilityTestState availabilityTestState))
+            if (IsAvailabilityTest(context.FunctionName))
             {
-                // This filter gets invoked for all function failures, including those that are not Availability Tests. 
-                // So if we do not find a record for this functionInstanceId, we assume it is not an Availability Test and do nothing.
-                return;
+                return true;
             }
 
-            // Unwrap FunctionInvocationException:
-            while (error != null && error is FunctionInvocationException && error.InnerException != null)
+            // For .NET languages, binding happens BEFORE filters, so if the function is an availability test
+            // we'll have known that already above
+            // The following check handles OOP languages, where bindings happen late and dynamically, AFTER filters.
+            // In these cases, we must read the function metadata, since NO binding has yet occurred
+            if (context.Arguments.TryGetValue("_context", out object value))
             {
-                error = error.InnerException;
+                var executionContext = value as ExecutionContext;
+                if (executionContext != null)
+                {
+                    var metadataPath = Path.Combine(executionContext.FunctionAppDirectory, "function.json");
+                    bool isAvailabilityTest = HasAvailabilityTestBinding(metadataPath);
+                    _availabilityTests[context.FunctionName] = isAvailabilityTest;
+                    return isAvailabilityTest;
+                }
             }
 
-            var failedResult = new AvailabilityTestResult
-            {
-                TestDisplayName = availabilityTestState.TestDisplayName,
-                Message = (error == null) ? "Availability Test completed with an enknown error." : $"Availability Test completed with an error ({error.GetType().Name}): {error.Message}",
-                Success = false
-            };
-
-            TearDownCompleteAvailabilityTest(failedResult, availabilityTestState);
+            return false;
         }
 
-        private void TearDownCompleteAvailabilityTest(AvailabilityTestResult availabilityTestResult, AvailabilityTestState availabilityTestState)
+        public void RegisterTest(string functionName)
         {
-            Console.WriteLine();
-            Console.WriteLine($"Executing AvailabilityTestManager.TearDownCompleteAvailabilityTest(..).");
+            _availabilityTests[functionName] = true;
+        }
 
-            Console.WriteLine($"    Stopping timers.");
-            Console.WriteLine($"    Stopping up Activity.");
-            Console.WriteLine($"    Sending result to endpoint.");
+        public Task<AvailabilityTestInvocationContext> StartInvocationAsync(FunctionInvocationContext context)
+        {
+            var invocationContext = _availabilityTestInvocationsContextMap.GetOrAdd(context.FunctionInstanceId, n =>
+            {
+                return new AvailabilityTestInvocationContext
+                {
+                    InvocationId = context.FunctionInstanceId
+                };
+            });
+            return Task.FromResult(invocationContext);
+        }
 
-            string jsonStr = JsonConvert.SerializeObject(availabilityTestResult, Formatting.Indented);
-            Console.WriteLine(jsonStr);
+        public AvailabilityTestInvocationContext GetInvocation(Guid instanceId)
+        {
+            if (_availabilityTestInvocationsContextMap.TryGetValue(instanceId, out AvailabilityTestInvocationContext invocationContext))
+            {
+                return invocationContext;
+            }
+            return null;
+        }
+
+        public Task CompleteInvocationAsync(FunctionInvocationContext context)
+        {
+            if (_availabilityTestInvocationsContextMap.TryRemove(context.FunctionInstanceId, out AvailabilityTestInvocationContext invocationContext))
+            {
+                // TODO: complete the invocation
+            }
+            return Task.CompletedTask;
+        }
+
+        private bool HasAvailabilityTestBinding(string metadataPath)
+        {
+            try
+            {
+                // TODO: make this code robust
+                string content = File.ReadAllText(metadataPath);
+                JObject jo = JObject.Parse(content);
+                var bindings = (JArray)jo["bindings"];
+                bool isAvailabilityTest = bindings.Any(p =>
+                    string.Compare((string)p["type"], "availabilityTestContext", StringComparison.OrdinalIgnoreCase) == 0 ||
+                    string.Compare((string)p["type"], "availabilityTestResult", StringComparison.OrdinalIgnoreCase) == 0);
+                return isAvailabilityTest;
+            }
+            catch
+            {
+                // best effort
+                return false;
+            }
         }
     }
 
-    internal class AvailabilityTestState
+    internal class AvailabilityTestInvocationContext
+    {
+        public Guid InvocationId { get; set; }
+
+        public AvailabilityTestResult Result { get; set; }
+    }
+
+    internal class AvailabilityTestDiscoveryBindingProvider : IBindingProvider
+    {
+        private readonly AvailabilityTestManager _manager;
+
+        public AvailabilityTestDiscoveryBindingProvider(AvailabilityTestManager manager)
+        {
+            _manager = manager;
+        }
+
+        public Task<IBinding> TryCreateAsync(BindingProviderContext context)
+        {
+            // Note that this only works for .NET functions, not OOP languages, because those bindings
+            // are evaluated late-bound, dynamically, and the triggering function is an IL genned wrapper
+            // without any AvailabilityTest attributes at all!
+            // OOP languages are handled internally by the AvailabilityTestManager by reading function metadata
+            var availabilityTestAttribute = context.Parameter.GetCustomAttributes(false).OfType<AvailabilityTestResultAttribute>().SingleOrDefault();
+            if (availabilityTestAttribute != null)
+            {
+                string functionName = GetFunctionName((MethodInfo)context.Parameter.Member);
+                _manager.RegisterTest(functionName);
+            }
+
+            return Task.FromResult<IBinding>(null);
+        }
+
+        private static string GetFunctionName(MethodInfo methodInfo)
+        {
+            // the format returned here must match the same format passed to invocation filters
+            // this is the same code used by the SDK for this
+            var functionNameAttribute = methodInfo.GetCustomAttribute<FunctionNameAttribute>();
+            return (functionNameAttribute != null) ? functionNameAttribute.Name : $"{methodInfo.DeclaringType.Name}.{methodInfo.Name}";
+        }
+    }
+
+    // Collector used to receive test results. IAsyncCollector is the type that allows interop with
+    // other languages. In .NET, user can just return an AvailabilityTestResult directly from their function -
+    // the framework should pass this to your collector
+    internal class AvailabilityTestCollector : IAsyncCollector<AvailabilityTestResult>
+    {
+        private readonly Guid _instanceId;
+        private readonly AvailabilityTestManager _manager;
+
+        public AvailabilityTestCollector(AvailabilityTestManager manager, Guid instanceId)
+        {
+            _manager = manager;
+            _instanceId = instanceId;
+        }
+
+        public Task AddAsync(AvailabilityTestResult item, CancellationToken cancellationToken = default)
+        {
+            var invocation = _manager.GetInvocation(_instanceId);
+            invocation.Result = item;
+
+            return Task.CompletedTask;
+        }
+
+        public Task FlushAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    // Attribute applied to input parameter
+    [Binding]
+    [AttributeUsage(AttributeTargets.Parameter)]
+    public class AvailabilityTestContextAttribute : Attribute
+    {
+        // TODO: Add any configuration properties the user needs to set
+        // Mark with [AutResolve] to have them resolved from app settings, etc. automatically
+    }
+
+    // Attribute applied to return value, representing the test result
+    [Binding]
+    [AttributeUsage(AttributeTargets.ReturnValue)]
+    public class AvailabilityTestResultAttribute : Attribute
+    {
+    }
+
+    // Input context type passed to user function
+    public class AvailabilityTestContext
     {
         public string TestDisplayName { get; set; }
+
+        public string TestArmResourceName { get; set; }
+
+        public string LocationDisplayName { get; set; }
+
+        public string LocationId { get; set; }
+
+        public DateTimeOffset StartTime { get; set; }
     }
 
-    internal static class Convert
+    // Result type the user returns from their function
+    public class AvailabilityTestResult
     {
-        public static AvailabilityTestResult ValueToAvailabilityTestResult<T>(T value)
+        public string Result { get; set; }
+    }
+
+    internal class AvailabilityTestInvocationFilter : IFunctionInvocationFilter
+    {
+        private readonly AvailabilityTestManager _manager;
+
+        public AvailabilityTestInvocationFilter(AvailabilityTestManager manager)
         {
-            AvailabilityTestResult availabilityTestResult;
+            _manager = manager;
+        }
 
-            if (value == null)
+        public async Task OnExecutedAsync(FunctionExecutedContext executedContext, CancellationToken cancellationToken)
+        {
+            if (_manager.IsAvailabilityTest(executedContext))
             {
-                availabilityTestResult = new AvailabilityTestResult
-                {
-                    Success = false,
-                    Message = "Availability Test completed with an unknown outcome"
-                };
+                await _manager.CompleteInvocationAsync(executedContext);
             }
-            else if (value is AvailabilityTestResult tstRes)
-            {
-                availabilityTestResult = tstRes;
-            }
-            else if (value is string tstResStr)
-            {
-                availabilityTestResult = JsonConvert.DeserializeObject<AvailabilityTestResult>(tstResStr);
-            }
-            else if (value is bool tstResBool)
-            {
-                availabilityTestResult = new AvailabilityTestResult
-                {
-                    Success = tstResBool,
-                    Message = tstResBool ? "Availability Test completed with success" : "Availability Test completed with a failure"
-                };
-            }
-            else
-            {
-                throw new InvalidOperationException($"Cannot convert a value of type {value.GetType().Name} to {nameof(AvailabilityTestResult)}.");
-            }
+        }
 
-            return availabilityTestResult;
+        public async Task OnExecutingAsync(FunctionExecutingContext executingContext, CancellationToken cancellationToken)
+        {
+            if (_manager.IsAvailabilityTest(executingContext))
+            {
+                await _manager.StartInvocationAsync(executingContext);
+            }
+        }
+    }
+
+    public static class RuleExtensions
+    {
+        public static void BindToCollector<TAttribute, TMessage>(this FluentBindingRule<TAttribute> rule, Func<TAttribute, ValueBindingContext, Task<IAsyncCollector<TMessage>>> buildFromAttribute) where TAttribute : Attribute
+        {
+            // TEMP: temporary workaround code effectively adding a ValueBindingContext collector overload,
+            // until it's added to the SDK
+            Type patternMatcherType = typeof(FluentBindingRule<>).Assembly.GetType("Microsoft.Azure.WebJobs.Host.Bindings.PatternMatcher");
+            var patternMatcherNewMethodInfo = patternMatcherType.GetMethods()[4];  // TODO: get this method properly via reflection
+            patternMatcherNewMethodInfo = patternMatcherNewMethodInfo.MakeGenericMethod(new Type[] { typeof(TAttribute), typeof(IAsyncCollector<TMessage>) });
+            var patternMatcherInstance = patternMatcherNewMethodInfo.Invoke(null, new object[] { buildFromAttribute });
+
+            MethodInfo bindToCollectorMethod = typeof(FluentBindingRule<TAttribute>).GetMethod(
+                                                                "BindToCollector",
+                                                                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                                                                binder: null,
+                                                                new Type[] { patternMatcherType },
+                                                                modifiers: null);
+            bindToCollectorMethod = bindToCollectorMethod.MakeGenericMethod(new Type[] { typeof(TMessage) });
+            bindToCollectorMethod.Invoke(rule, new object[] { patternMatcherInstance });
         }
     }
 }
