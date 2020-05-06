@@ -62,5 +62,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 yield return rowStr;
             }
         }
+
+        internal static string LocationNameAsId(string locationDisplayName)
+        {
+            string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
+            return locationId;
+        }
+        
     }
 }
