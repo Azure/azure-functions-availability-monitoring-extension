@@ -26,16 +26,16 @@ namespace AvailabilityMonitoringExtensionDemo
         public async Task SimpleIoBinding(
                         [TimerTrigger("0,15,30,45 */1 * * * *")] TimerInfo timerInfo,
                         //[TimerTrigger("%FooBar%")] TimerInfo timerInfo,
-                        [AvailabilityTest(TestDisplayName = "Test Display Name",
-                                          //TestArmResourceName = "Test ARM Resource Name",
-                                          LocationDisplayName = "Location Display Name",
-                                          LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
+                        //[AvailabilityTest(TestDisplayName = "Test Display Name",
+                        //                  //TestArmResourceName = "Test ARM Resource Name",
+                        //                  LocationDisplayName = "Location Display Name",
+                        //                  LocationId = "Location Id")] AvailabilityTestInfo testInvocation,
                         ILogger log)
         {
             log.LogInformation($"@@@@@@@@@@@@ \"{FunctionName}.{nameof(SimpleIoBinding)}\" started.");
             log.LogInformation($"@@@@@@@@@@@@ {ToString(timerInfo)}");
 
-            testInvocation.AvailabilityResult.Name += " | Name was modified (A)";
+            //testInvocation.AvailabilityResult.Name += " | Name was modified (A)";
 
             await Task.Delay(0);
         }

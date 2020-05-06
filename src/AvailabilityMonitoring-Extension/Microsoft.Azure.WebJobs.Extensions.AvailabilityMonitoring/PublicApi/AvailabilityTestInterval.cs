@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Azure.AvailabilityMonitoring;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
@@ -22,7 +23,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         private static readonly Random Rnd = new Random();
 
-
         internal static bool IsSpecification(string testIntervalSpec)
         {
             // Ignore nulls and empty strings:
@@ -41,7 +41,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         internal static int Parse(string testIntervalSpec)
         {
             // Ensure not null:
-            testIntervalSpec = Format.NotNullOrWord(testIntervalSpec);
+            testIntervalSpec = Format.SpellIfNull(testIntervalSpec);
 
             // Remove '%' (if any) and trim:
             testIntervalSpec = RemoveEnclosingNameResolverTags(testIntervalSpec);

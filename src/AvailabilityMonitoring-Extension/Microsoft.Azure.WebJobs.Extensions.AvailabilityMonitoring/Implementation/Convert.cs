@@ -1,82 +1,34 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Microsoft.ApplicationInsights.DataContracts;
-using Newtonsoft.Json.Linq;
+using Microsoft.Azure.AvailabilityMonitoring;
+using Newtonsoft.Json;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
     internal static class Convert
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetPropertyOrNullWord(AvailabilityTelemetry availabilityResult, string propertyName)
+        public static string AvailabilityTestInfoToString(AvailabilityTestInfo availabilityTestInfo)
         {
-            return Format.NotNullOrWord(GetPropertyOrNull(availabilityResult, propertyName));
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            string str = JsonConvert.SerializeObject(availabilityTestInfo, Formatting.Indented);
+            return str;
         }
 
-        public static string GetPropertyOrNull(AvailabilityTelemetry availabilityResult, string propertyName)
+        public static AvailabilityTelemetry AvailabilityTestInfoToAvailabilityTelemetry(AvailabilityTestInfo availabilityTestInfo)
         {
-            IDictionary<string, string> properties = availabilityResult?.Properties;
-            if (properties == null || propertyName == null)
+            Validate.NotNull(availabilityTestInfo, nameof(availabilityTestInfo));
+            return availabilityTestInfo.DefaultAvailabilityResult;
+        }
+
+        public static AvailabilityTelemetry StringToAvailabilityTelemetry(string str)
+        {
+            if (str == null)
             {
                 return null;
             }
 
-            if (false == properties.TryGetValue(propertyName, out string propertyValue))
-            {
-                return null;
-            }
-
-            return propertyValue;
-        }
-
-        public static JObject AvailabilityTestInvocationToJObject(AvailabilityTestInfo availabilityTestInvocation)
-        {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            JObject jObject = JObject.FromObject(availabilityTestInvocation);
-            return jObject;
-        }
-
-        public static AvailabilityTestInfo JObjectToAvailabilityTestInvocation(JObject availabilityTestInvocation)
-        {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-
-            try
-            {
-                AvailabilityTestInfo stronglyTypedTestInvocation = availabilityTestInvocation.ToObject<AvailabilityTestInfo>();
-                return stronglyTypedTestInvocation;
-            }
-            catch(Exception)
-            {
-                return null;
-            }
-        }
-
-        public static AvailabilityTelemetry JObjectToAvailabilityTelemetry(JObject availabilityResult)
-        {
-            Validate.NotNull(availabilityResult, nameof(availabilityResult));
-
-            try
-            {
-                AvailabilityTelemetry stronglyTypedAvailabilityTelemetry = availabilityResult.ToObject<AvailabilityTelemetry>();
-                return stronglyTypedAvailabilityTelemetry;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
-        public static AvailabilityTelemetry AvailabilityTestInvocationToAvailabilityTelemetry(AvailabilityTestInfo availabilityTestInvocation)
-        {
-            Validate.NotNull(availabilityTestInvocation, nameof(availabilityTestInvocation));
-            return availabilityTestInvocation.AvailabilityResult;
-        }
-
-        public static AvailabilityTestInfo AvailabilityTelemetryToAvailabilityTestInvocation(AvailabilityTelemetry availabilityResult)
-        {
-            Validate.NotNull(availabilityResult, nameof(availabilityResult));
-            return new AvailabilityTestInfo(availabilityResult);
+            AvailabilityTelemetry availabilityResult = JsonConvert.DeserializeObject<AvailabilityTelemetry>(str);
+            return availabilityResult;
         }
     }
 }

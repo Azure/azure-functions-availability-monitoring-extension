@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 
-namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
+namespace Microsoft.Azure.AvailabilityMonitoring
 {
     internal static class Validate
     {

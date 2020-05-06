@@ -1,457 +1,297 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.Channel;
-using Microsoft.ApplicationInsights.DataContracts;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.Azure.AvailabilityMonitoring;
 using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 {
-#pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
-    internal class FunctionInvocationManagementFilter : IFunctionInvocationFilter
+// Type 'IFunctionInvocationFilter' (and other Filter-related types) is marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
+    internal class FunctionInvocationManagementFilter : IFunctionInvocationFilter, IFunctionExceptionFilter
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
     {
-        private readonly TelemetryClient _telemetryClient;
+        private readonly AvailabilityTestRegistry _availabilityTestRegistry;
+        private readonly TelemetryConfiguration _telemetryConfiguration;
+        private readonly AvailabilityTestScopeSettingsResolver _availabilityTestScopeSettingsResolver;
 
-        public FunctionInvocationManagementFilter(TelemetryClient telemetryClient, ILogger log)
+        public FunctionInvocationManagementFilter(AvailabilityTestRegistry availabilityTestRegistry, TelemetryConfiguration telemetryConfiguration, IConfiguration configuration, INameResolver nameResolver)
         {
-            Validate.NotNull(telemetryClient, nameof(telemetryClient));
-            _telemetryClient = telemetryClient;
+            Validate.NotNull(availabilityTestRegistry, nameof(availabilityTestRegistry));
+            Validate.NotNull(telemetryConfiguration, nameof(telemetryConfiguration));
+
+            _availabilityTestRegistry = availabilityTestRegistry;
+            _telemetryConfiguration = telemetryConfiguration;
+            _availabilityTestScopeSettingsResolver = new AvailabilityTestScopeSettingsResolver(configuration, nameResolver);
         }
 
-#pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+// Types 'FunctionExecutingContext' and 'IFunctionFilter' (and other Filter-related types) are marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
         public Task OnExecutingAsync(FunctionExecutingContext executingContext, CancellationToken cancelControl)
-#pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+#pragma warning restore CS0618
         {
-            Console.WriteLine("Filter Entry Point: OnExecutingAsync");
-
+            // A few lines which we need for attaching a debugger during development.
+            // @ToDo: Remove before shipping.
+            Console.WriteLine($"Filter Entry Point: {nameof(FunctionInvocationManagementFilter)}.{nameof(OnExecutingAsync)}(..).");
+            Console.WriteLine($"FunctionInstanceId: {Format.SpellIfNull(executingContext?.FunctionInstanceId)}.");
             Process proc = Process.GetCurrentProcess();
             Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
-            Console.WriteLine($"FunctionInstanceId: \"{executingContext.FunctionInstanceId}\".");
+            // --
 
             Validate.NotNull(executingContext, nameof(executingContext));
 
-            // Check that the functionInstanceId is registered.
-            // If not, this function does not have a parameter marked with AvailabilityTestAttribute. In that case there is nothing to do:
-            bool isAvailabilityTest = FunctionInvocationStateCache.SingeltonInstance.TryStartFunctionInvocation(
-                                                                                            executingContext.FunctionInstanceId,
-                                                                                            out FunctionInvocationState invocationState);
+            // Grab the invocation id and the logger:
+            Guid functionInstanceId = executingContext.FunctionInstanceId;
+            ILogger log = executingContext.Logger;
 
-            Console.WriteLine($"isAvailabilityTest: \"{isAvailabilityTest}\".");
+            // Check if this is an Availability Test.
+            // There are 3 cases:
+            //  1) This IS an Availability Test and this is an in-proc/.Net functuion:
+            //     This filter runs AFTER the bindings.
+            //     The current function was already registered, becasue the attribute binding was already executed.
+            //  2) This IS an Availability Test and this is an out-of-proc/non-.Net function:
+            //     This filter runs BEFORE the bindings.
+            //      a) If this is the first time the filter runs for the current function, TryGetTestConfig(..) will
+            //         read the metadata file, extract the config and return True.
+            //      b) If this is not the first time, the function is already registered as described in (a).
+            //  3) This is NOT an Availability Test:
+            //     We will get False here and do nothing.
 
+            bool isAvailabilityTest = _availabilityTestRegistry.Functions.IsAvailabilityTest(executingContext, out string functionName, out IAvailabilityTestConfiguration testConfig);
             if (! isAvailabilityTest)
             {
+                if (log != null)
+                {
+                    using (log.BeginScope(LogMonikers.Scopes.CreateForTestInvocation(functionName)))
+                    {
+                        log.LogDebug($"Availability Test Pre-Function routine was invoked and determned that this function is NOT an Availability Test:"
+                                    + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\"}}",
+                                      functionName, functionInstanceId);
+                    }
+                }
+
                 return Task.CompletedTask;
             }
 
-            ILogger log = executingContext.Logger;
-            string activitySpanId;
+            // If configured, use a fall-back logger:
+            log = AvailabilityTest.Log.CreateFallbackLogIfRequired(log);
 
-            Console.WriteLine($"invocationState.CurrentStage: \"{invocationState.CurrentStage}\".");
-            Console.WriteLine($"Log Type: \"{Format.NotNullOrWord(log?.GetType()?.Name)}\".");
-
-            IDisposable logScope = log?.BeginScope(new Dictionary<string, string>()
-                    {
-                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(executingContext.FunctionInstanceId),
-                    });
-            try
+            IReadOnlyDictionary<string, object> logScopeInfo = LogMonikers.Scopes.CreateForTestInvocation(functionName);
+            using (log.BeginScopeSafe(logScopeInfo))
             {
-                log?.LogInformation("Coded Availability Test setup started.");
-                Console.WriteLine("Coded Availability Test setup started.");
+                log?.LogDebug($"Availability Test Pre-Function routine was invoked:"
+                             + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
+                             + " TestConfiguration={{TestDisplayNameTemplate=\"{TestDisplayNameTemplate}\","
+                             + " LocationDisplayNameTemplate=\"{LocationDisplayNameTemplate}\","
+                             + " LocationIdTemplate=\"{LocationIdTemplate}\"}} }}",
+                              functionName, functionInstanceId, testConfig.TestDisplayName, testConfig.LocationDisplayName, testConfig.LocationId);
 
-                IdentifyManagedParameters(invocationState, executingContext.Arguments, log);
+                // - In case (1) described above, we have already registered this invocation:
+                //   The function parameters have been instantiated, and attached to the invocationState.
+                //   However, the parameters are NOT yet initialized, as we did not have a AvailabilityTestScope instance yet.
+                //   We will set up an AvailabilityTestScope and attach it to the invocationState.
+                //   Then we will initialize the parameters using data from that scope.
+                // - In case (2) described above, we have not yet registered the invocation:
+                //   A new invocationState will end up being created now. 
+                //   We will set up an AvailabilityTestScope and attach it to the invocationState.
+                //   Subsequently, when the binings eventually get invoked by the Functions tuntime,
+                //   they will instantiate and initialize the parameters using data from that scope.
 
-                // Start activity:
-                string activityName = Format.NotNullOrWord(invocationState.ActivitySpanName);
-                invocationState.ActivitySpan = new Activity(activityName).Start();
-                activitySpanId = invocationState.ActivitySpan.SpanId.ToHexString();
+                // Get the invocation state bag:
 
-                log?.LogInformation($"Started activity (name=\"{activityName}\", spanId=\"{activitySpanId}\")."
-                                  + $" Coded Availability Test setup completed."
-                                  + $" About to invoke Coded Availabillity Test.");
-            }
-            finally
-            {
-                logScope?.Dispose();
-            }
+                AvailabilityTestInvocationState invocationState = _availabilityTestRegistry.Invocations.GetOrRegister(functionInstanceId, log);
 
-            invocationState.LoggerScope = log?.BeginScope(new Dictionary<string, string>()
-                    {
-                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(executingContext.FunctionInstanceId),
-                        ["Microsoft.Azure.AvailabilityMonitoring.TestDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.TestDisplayName),
-                        ["Microsoft.Azure.AvailabilityMonitoring.LocationDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationDisplayName),
-                        ["Microsoft.Azure.AvailabilityMonitoring.LocationId"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationId)
-                    });
+                // If test configuration makes reference to configuration, resolve the settings
+                IAvailabilityTestConfiguration resolvedTestConfig = _availabilityTestScopeSettingsResolver.Resolve(testConfig, functionName);
 
-            try
-            { 
-                // Start the timer:
-                DateTimeOffset startTime = DateTimeOffset.Now;
+                // Start the availability test scope (this will start timers and set up the activity span):
+                AvailabilityTestScope testScope = AvailabilityTest.StartNew(resolvedTestConfig, _telemetryConfiguration, flushOnDispose: true, log, logScopeInfo);
+                invocationState.AttachTestScope(testScope);
 
-                // Look at every paramater and update it with the activity ID and the start time:
-                foreach (FunctionInvocationState.Parameter regRaram in invocationState.Parameters.Values)
+                // If we have previously instantiated a result collector, initialize it now:
+                if (invocationState.TryGetResultCollector(out AvailabilityResultAsyncCollector resultCollector))
                 {
-                    regRaram.AvailabilityTestInfo.AvailabilityResult.Id = activitySpanId;
+                    resultCollector.Initialize(testScope);
+                }
 
-                    if (regRaram.Type.Equals(typeof(AvailabilityTestInfo)))
+                // If we have previously instantiated a test info, initialize it now:
+                if (invocationState.TryGetTestInfos(out IEnumerable<AvailabilityTestInfo> testInfos))
+                {
+                    AvailabilityTestInfo model = testScope.CreateAvailabilityTestInfo();
+                    foreach (AvailabilityTestInfo testInfo in testInfos)
                     {
-                        AvailabilityTestInfo actParam = (AvailabilityTestInfo) executingContext.Arguments[regRaram.Name];
-                        actParam.AvailabilityResult.Id = activitySpanId;
-                        actParam.SetStartTime(startTime);
-                    }
-                    else if (regRaram.Type.Equals(typeof(AvailabilityTelemetry)))
-                    {
-                        AvailabilityTelemetry actParam = (AvailabilityTelemetry) executingContext.Arguments[regRaram.Name];
-                        actParam.Id = activitySpanId;
-                        actParam.Timestamp = startTime.ToUniversalTime();
-                    }
-                    else if (regRaram.Type.Equals(typeof(JObject)))
-                    {
-                        JObject actParam = (JObject) executingContext.Arguments[regRaram.Name];
-                        actParam["AvailabilityResult"]["Id"].Replace(JToken.FromObject(activitySpanId));
-                        actParam["StartTime"].Replace(JToken.FromObject(startTime));
-                        actParam["AvailabilityResult"]["Timestamp"].Replace(JToken.FromObject(startTime.ToUniversalTime()));
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Unexpected managed parameter type: \"{regRaram.Type.FullName}\".");
+                        testInfo.CopyFrom(model);
                     }
                 }
             }
-            catch(Exception ex)
-            {
-                invocationState.LoggerScope.Dispose();
-                invocationState.ActivitySpan.Stop();
-                ExceptionDispatchInfo.Capture(ex).Throw();
-            }
 
-            // Done:
             return Task.CompletedTask;
         }
 
-#pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+// Types 'FunctionExceptionContext' and 'IFunctionFilter' (and other Filter-related types) are marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
+        public Task OnExceptionAsync(FunctionExceptionContext exceptionContext, CancellationToken cancelControl)
+#pragma warning restore CS0618
+        {
+            // A few lines which we need for attaching a debugger during development.
+            // @ToDo: Remove before shipping.
+            Console.WriteLine($"Filter Entry Point: {nameof(FunctionInvocationManagementFilter)}.{nameof(OnExceptionAsync)}(..).");
+            Console.WriteLine($"FunctionInstanceId: {Format.SpellIfNull(exceptionContext?.FunctionInstanceId)}.");
+            Process proc = Process.GetCurrentProcess();
+            Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
+            // --
+
+            // Get error:
+            Exception error = exceptionContext?.Exception 
+                                ?? new Exception("OnExceptionAsync(..) is invoked, but no Exception information is available. ");
+
+            OnPostFunctionError(exceptionContext, error, nameof(OnExceptionAsync));
+
+            return Task.CompletedTask;
+        }
+
+// Types 'FunctionExecutedContext' and 'IFunctionFilter' (and other Filter-related types) are marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
         public Task OnExecutedAsync(FunctionExecutedContext executedContext, CancellationToken cancelControl)
-#pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+#pragma warning restore CS0618
         {
-            Console.WriteLine("Filter Entry Point: OnExecutedAsync");
+            // A few lines which we need for attaching a debugger during development.
+            // @ToDo: Remove before shipping.
+            Console.WriteLine($"Filter Entry Point: {nameof(FunctionInvocationManagementFilter)}.{nameof(OnExecutedAsync)}(..).");
+            Console.WriteLine($"FunctionInstanceId: {Format.SpellIfNull(executedContext?.FunctionInstanceId)}.");
+            Process proc = Process.GetCurrentProcess();
+            Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
+            // --
 
-            Validate.NotNull(executedContext, nameof(executedContext));
-
-            // Check that the functionInstanceId is registered.
-            // If not, this function does not have a parameter marked with AvailabilityTestAttribute. In that case there is nothing to do:
-            bool isAvailabilityTest = FunctionInvocationStateCache.SingeltonInstance.TryCompleteFunctionInvocation(
-                                                                                           executedContext.FunctionInstanceId,
-                                                                                           out FunctionInvocationState invocationState);
-            if (!isAvailabilityTest)
+            Exception error = null;
+            if (executedContext?.FunctionResult?.Succeeded != true)
             {
-                return Task.CompletedTask;
+                error = executedContext?.FunctionResult?.Exception;
+                error = error ?? new Exception("FunctionResult.Succeeded is false, but no Exception information is available.");
             }
 
-            // Measure user time (plus the minimal runtime overhead within the bracket of this binding):
-            DateTimeOffset endTime = DateTimeOffset.Now;
-
-            ILogger log = executedContext.Logger;
-
-            // Stop logging scope:
-            invocationState.LoggerScope?.Dispose();
-
-            IDisposable logScope = log?.BeginScope(new Dictionary<string, string>()
-                    {
-                        ["Microsoft.Azure.AvailabilityMonitoring.FunctionInstanceId"] = Format.Guid(invocationState.FunctionInstanceId),
-                        ["Microsoft.Azure.AvailabilityMonitoring.TestDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.TestDisplayName),
-                        ["Microsoft.Azure.AvailabilityMonitoring.LocationDisplayName"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationDisplayName),
-                        ["Microsoft.Azure.AvailabilityMonitoring.LocationId"] = Format.NotNullOrWord(invocationState.FirstParameter?.AvailabilityTestInfo?.LocationId)
-                    });
-            try
-            {
-                log?.LogInformation("Coded Availability Test completed. Processing results.");
-                Console.WriteLine("Coded Availability Test completed. Processing results.");
-
-                // Stop activity:
-                string activitySpadId = invocationState.ActivitySpan.SpanId.ToHexString();
-                invocationState.ActivitySpan.Stop();
-
-                // Get Function result (failed or not):
-                bool errorOcurred = ! executedContext.FunctionResult.Succeeded;
-                Exception error = errorOcurred 
-                                        ? executedContext.FunctionResult.Exception
-                                        : null;
-
-                log?.LogInformation($"Stopped activity (name=\"{ invocationState.ActivitySpan.OperationName}\", spanId=\"{activitySpadId}\"). Overall CAT result: " +
-                                    ((errorOcurred || error != null)
-                                        ? $"errorOcurred={errorOcurred}; error=\"{error.GetType().Name}: \'{error.Message}\'\""
-                                        : $"errorOcurred={errorOcurred}"));
-
-                log?.LogInformation($"Starting to process {invocationState.Parameters.Count} result-parameters tagged with {nameof(AvailabilityTestAttribute)}.");
-
-                List<Exception> processingErrors = null;
-
-                // Look at every paramater that was originally tagged with the attribute:
-                foreach (FunctionInvocationState.Parameter registeredRaram in invocationState.Parameters.Values)
-                {
-                    try
-                    {
-                        log?.LogInformation($"Starting to process result-parameter of type \"{registeredRaram.Type.Name}\".");
-
-                        // Find the actual parameter value in the function arguments (named lookup):
-                        if (false == executedContext.Arguments.TryGetValue(registeredRaram.Name, out object functionOutputParam))
-                        {
-                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", but it was not found in the"
-                                                              + $" actual argument list after the function invocation.");
-                        }
-
-                        if (functionOutputParam == null)
-                        {
-                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
-                                                              + $" actual argument list after the function invocation was null.");
-                        }
-
-                        // Based on parameter type, convert it to AvailabilityTestInfo and then process:
-
-                        bool functionOutputParamProcessed = false;
-
-                        {
-                            // If this argument is a AvailabilityTestInfo:
-                            var testInfoParameter = functionOutputParam as AvailabilityTestInfo;
-                            if (testInfoParameter != null)
-                            {
-                                ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                                functionOutputParamProcessed = true;
-                            }
-                        }
-
-                        {
-                            // If this argument is a AvailabilityTelemetry:
-                            var availabilityResultParameter = functionOutputParam as AvailabilityTelemetry;
-                            if (availabilityResultParameter != null)
-                            {
-                                AvailabilityTestInfo testInfoParameter = Convert.AvailabilityTelemetryToAvailabilityTestInvocation(availabilityResultParameter);
-                                ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                                functionOutputParamProcessed = true;
-                            }
-                        }
-
-                        {
-                            // If this argument is a JObject:
-                            var jObjectParameter = functionOutputParam as JObject;
-                            if (jObjectParameter != null)
-                            {
-                                // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
-                                AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
-                                if (testInfoParameter != null)
-                                {
-                                    ProcessOutputParameter(endTime, errorOcurred, error, testInfoParameter, activitySpadId, cancelControl);
-                                    functionOutputParamProcessed = true;
-                                }
-                            }
-                        }
-
-                        if (false == functionOutputParamProcessed)
-                        {
-                            throw new InvalidOperationException($"A parameter with name \"{Format.NotNullOrWord(registeredRaram?.Name)}\" and"
-                                                              + $" type \"{Format.NotNullOrWord(registeredRaram?.Type)}\" was registered for"
-                                                              + $" the function \"{Format.NotNullOrWord(executedContext?.FunctionName)}\", and the corresponding value in the"
-                                                              + $" actual argument list after the function invocation cannot be processed"
-                                                              + $" ({Format.NotNullOrWord(functionOutputParam?.GetType()?.Name)}).");
-                        }
-
-                        log?.LogInformation($"Completed to process result-parameter of type \"{registeredRaram.Type.Name}\".");
-                    }
-                    catch(Exception ex)
-                    {
-                        log?.LogInformation($"Error while processing result-parameter of type \"{registeredRaram.Type.Name}\".");
-                        processingErrors = processingErrors ?? new List<Exception>();
-                        processingErrors.Add(ex);
-                    }
-                }
-
-                log?.LogInformation($"Completed processing result-parameters. Errors: {(processingErrors == null ? 0 : processingErrors.Count)}.");
-
-                // Make sure everyting we trracked is put on the wire, in case the Function runtime shuts down:
-                _telemetryClient.Flush();
-
-                if (processingErrors != null)
-                {
-                    if (processingErrors.Count == 1)
-                    {
-                        ExceptionDispatchInfo.Capture(processingErrors[0]).Throw();
-                    }
-                    else
-                    {
-                        throw new AggregateException($"Failed to process {processingErrors.Count} out of {invocationState.Parameters.Count}"
-                                                   + $" result-parameters tagged with {nameof(AvailabilityTestAttribute)}.",
-                                                     processingErrors);
-                    }
-                }
-            }
-            finally
-            {
-                logScope?.Dispose();
-            }
+            OnPostFunctionError(executedContext, error, nameof(OnExecutedAsync));
 
             return Task.CompletedTask;
         }
 
-        private void ProcessOutputParameter(
-                            DateTimeOffset endTime,
-                            bool errorOcurred, 
-                            Exception error, 
-                            AvailabilityTestInfo functionOutputParam, 
-                            string activitySpanId,
-                            CancellationToken cancelControl)
+// Types 'FunctionFilterContext' and 'IFunctionFilter' (and other Filter-related types) are marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
+        private void OnPostFunctionError(FunctionFilterContext filterContext, Exception error, string entryPointName)
+#pragma warning restore CS0618
         {
-            if (errorOcurred)
-            {
-                // If the user code completed with an error or a timeout, then the Test resuls is always "fail":
-                functionOutputParam.AvailabilityResult.Success = false;
+            // The functions runtime communicates some exceptions only via OnExceptionAsync(..) (e.g., timeouts).
+            // Some other exceptions may be also be communicated via OnExecutedAsync(..).
+            // Rather than trying to predict this flaky behaviour, we are being defensve and are processing both callbacks.
+            // Whichever happens first will call this method. We will deregister the invocation and process the error.
+            // The second call (if it happens) will find this invocation no longer registered it will return.
+            // If no error occurred at all, the result is handeled by the result collector (IAsyncCollector<>).
+            // So, for no-error cases, all we need to do here is to deregister the invocation and return right away.
 
-                // Annotate exception and the availability result:
-                Format.AnnotateFunctionErrorWithAvailabilityTelemetryInfo(error, functionOutputParam);
-                Format.AnnotateAvailabilityResultWithErrorInfo(functionOutputParam, error);
+            Validate.NotNull(filterContext, nameof(filterContext));
+
+            // Grab the invocation id, the logger and the function name:
+            Guid functionInstanceId = filterContext.FunctionInstanceId;
+            ILogger log = filterContext.Logger;
+            string functionName = filterContext.FunctionName;
+
+            // Unwrap generic function exception:
+            while (error != null 
+                        && error is FunctionInvocationException funcInvocEx 
+                        && funcInvocEx.InnerException != null)
+            {
+                error = funcInvocEx.InnerException;
             }
 
-            // If user did not initialize Message, initialize it to default value according to the result:
-            if (String.IsNullOrEmpty(functionOutputParam.AvailabilityResult.Message))
+            // If configured, use a fall-back logger:
+            log = AvailabilityTest.Log.CreateFallbackLogIfRequired(log);
+            const int MaxErrorMessageLength = 100;
+
+            IReadOnlyDictionary<string, object> logScopeInfo = LogMonikers.Scopes.CreateForTestInvocation(functionName);
+            using (log?.BeginScopeSafe(logScopeInfo))
             {
-                bool isUserCodeTimeout = (cancelControl == (error as TaskCanceledException)?.CancellationToken);
+                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) beginning:"
+                                + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
+                                + " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
+                                 functionName, functionInstanceId,
+                                 Format.SpellIfNull(error?.GetType()?.Name), Format.LimitLength(error?.Message, MaxErrorMessageLength, trim: true));
 
-                functionOutputParam.AvailabilityResult.Message = errorOcurred
-                                                                ? isUserCodeTimeout
-                                                                        ? Format.DefaultResultMessage_Timeout
-                                                                        : Format.DefaultResultMessage_Error
-                                                                : functionOutputParam.AvailabilityResult.Success
-                                                                        ? Format.DefaultResultMessage_Pass
-                                                                        : Format.DefaultResultMessage_Fail;
-            }
+                // A function is an Availability Test iff is has a return value marked with [AvailabilityTestResult];
+                // whereas a [AvailabilityTestInfo] is optional to get test information at runtime.
+                // User could have marked a parameter with [AvailabilityTestInfo] but no return value with [AvailabilityTestResult]:
+                // That does not make sense, but we need to do something graceful. Since in the binder (see CreateAvailabilityTestInfo) we
+                // did not have a way of knowing whether the return value is tagged, we have initialized the test info and registered the invocation.
+                // We need to clean it up now even if the function is not an Availability Test.
 
-            // If user did not initialize Duration, initialize it to default value according to the measurement:
-            if (functionOutputParam.AvailabilityResult.Duration == TimeSpan.Zero)
-            {
-                functionOutputParam.AvailabilityResult.Duration = endTime - functionOutputParam.AvailabilityResult.Timestamp;
-            }
-
-            // Send the availability result to the backend:
-            Format.RemoveAvailabilityTestInfoIdentity(functionOutputParam.AvailabilityResult);
-            functionOutputParam.AvailabilityResult.Id = activitySpanId;
-            _telemetryClient.TrackAvailability(functionOutputParam.AvailabilityResult);
-        }
-
-        private void IdentifyManagedParameters(FunctionInvocationState invocationState, IReadOnlyDictionary<string, object> actualFunctionParameters, ILogger log)
-        {
-            log?.LogInformation($"Starting to process {actualFunctionParameters.Count} function parameters."
-                              + $" Expecting to identify {invocationState.Parameters.Count} {nameof(AvailabilityTestAttribute)}-tagged parameters.");
-
-            int identifiedParameterCount = 0;
-            // Look at each argument:
-            if (actualFunctionParameters != null)
-            {
-                foreach (KeyValuePair<string, object> actualFunctionParameter in actualFunctionParameters)
+                bool isTrackedInvocation  = _availabilityTestRegistry.Invocations.TryDeregister(functionInstanceId, log, out AvailabilityTestInvocationState invocationState);
+                if (! isTrackedInvocation)
                 {
-                    // Skip null value:
-                    if (actualFunctionParameter.Value == null)
-                    {
-                        continue;
-                    }
-
-                    {
-                        // If this argument is a AvailabilityTestInfo:
-                        var testInfoParameter = actualFunctionParameter.Value as AvailabilityTestInfo;
-                        if (testInfoParameter != null)
-                        {
-                            // Find registered parameter with the right ID, validate, and store its name:
-                            Guid actualFunctionParameterId = testInfoParameter.Identity;
-                            if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
-                            {
-                                log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{testInfoParameter.GetType().Name}\".");
-                                identifiedParameterCount++;
-                            }
-                        }
-                    }
-
-                    {
-                        // If this argument is a AvailabilityTelemetry:
-                        var availabilityResultParameter = actualFunctionParameter.Value as AvailabilityTelemetry;
-                        if (availabilityResultParameter != null)
-                        {
-                            // Find registered parameter with the right ID, validate, and store its name:
-                            Guid actualFunctionParameterId = Format.GetAvailabilityTestInfoIdentity(availabilityResultParameter);
-                            if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
-                            {
-                                log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{availabilityResultParameter.GetType().Name}\".");
-                                identifiedParameterCount++;
-                            }
-                        }
-                    }
-
-                    {
-                        // If this argument is a JObject:
-                        var jObjectParameter = actualFunctionParameter.Value as JObject;
-                        if (jObjectParameter != null)
-                        {
-                            // Can jObjectParameter be cnverted to a AvailabilityTestInfo (null if not):
-                            AvailabilityTestInfo testInfoParameter = Convert.JObjectToAvailabilityTestInvocation(jObjectParameter);
-                            if (testInfoParameter != null)
-                            {
-                                // Find registered parameter with the right ID, validate, and store its name:
-                                Guid actualFunctionParameterId = testInfoParameter.Identity;
-                                if (TryIdentifyAndValidateManagedParameter(invocationState, actualFunctionParameter.Key, actualFunctionParameter.Value, actualFunctionParameterId))
-                                {
-                                    log?.LogInformation($"{nameof(AvailabilityTestAttribute)}-tagged parameter indentified. Runtime type: \"{jObjectParameter.GetType().Name}\".");
-                                    identifiedParameterCount++;
-                                }
-                            }
-                        }
-                    }
+                    log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
+                                + " This function invocation instance is not being tracked."
+                                + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
+                                + " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
+                                 functionName, functionInstanceId,
+                                 Format.SpellIfNull(error?.GetType()?.Name), Format.LimitLength(error?.Message, MaxErrorMessageLength, trim: true));
+                    return;
                 }
+
+                // If no exception was thrown by the function, the results collector will be called to set the return value.
+                // It will Complete the Availability Test Scope, so there is nothing to do here.
+
+                if (error == null)
+                {
+                    log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
+                                + " No error to be handled."
+                                + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
+                                + " ErrorType=\"{ErrorType}\", , ErrorMessage=\"{ErrorMessage}\"}}",
+                                 functionName, functionInstanceId,
+                                 Format.SpellIfNull(null), Format.LimitLength(null, MaxErrorMessageLength, trim: true));
+                    return;
+                }
+
+                // An exception has occurred in the function, so we need to complete the Availability Test Scope here.
+
+                if (! invocationState.TryGetTestScope(out AvailabilityTestScope testScope))
+                {
+                    // This should never happen!
+
+                    log?.LogError($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
+                                +  " Error: No AvailabilityTestScope was attached to the invocation state - Cannot continue processing!"
+                                +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\"}}"
+                                +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
+                                  functionName, functionInstanceId,
+                                  error.GetType().Name, error.Message);
+                    return;
+                }
+
+                bool isTimeout = (error is FunctionTimeoutException);
+
+                testScope.Complete(error, isTimeout);
+                testScope.Dispose();
+
+                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished" +
+                    $":"
+                            + $" {nameof(AvailabilityTestScope)} was completed and disposed."
+                            +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
+                            +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\","
+                            +  " TestConfiguration={{TestDisplayName=\"{TestDisplayName}\","
+                            +  " LocationDisplayName=\"{LocationDisplayName}\","
+                            +  " LocationId=\"{LocationId}\"}} }}",
+                             functionName, functionInstanceId,
+                             error.GetType().Name, Format.LimitLength(error.Message, MaxErrorMessageLength, trim: true),
+                             testScope.TestDisplayName, testScope.LocationDisplayName, testScope.LocationId);
             }
-
-            log?.LogInformation($"Completed processing {actualFunctionParameters.Count} function parameters."
-                              + $" {identifiedParameterCount} marked with {nameof(AvailabilityTestAttribute)} identified.");
-
-            if (identifiedParameterCount != invocationState.Parameters.Count)
-            {
-                throw new InvalidOperationException($"{invocationState.Parameters.Count} parameters were marked with the {nameof(AvailabilityTestAttribute)},"
-                                                  + $" but {identifiedParameterCount} parameters were identified during the actual function invocation.");
-            }
-        }
-
-        private bool TryIdentifyAndValidateManagedParameter(FunctionInvocationState invocationState, string actualParamName, object actualParamValue, Guid actualParamId)
-        {
-            // Check if the actual param matches a registered managed param:
-            if (false == invocationState.Parameters.TryGetValue(actualParamId, out FunctionInvocationState.Parameter registeredParam))
-            {
-                return false;
-            }
-
-            // Validate type match:
-            if (false == actualParamValue.GetType().Equals(registeredParam.Type))
-            {
-                throw new InvalidProgramException($"The parameter with the identity \'{Format.Guid(actualParamId)}\'"
-                                                + $" is expected to be of type {registeredParam.Type},"
-                                                + $" but in reality it is of type {actualParamValue.GetType().Name}.");
-            }
-
-            // Validate ID uniqueness:
-            if (registeredParam.Name != null)
-            {
-                throw new InvalidProgramException($"The parameter with the identity \'{Format.Guid(actualParamId)}\'"
-                                                + $" has the name \'{actualParamName}\', but a parameter with that"
-                                                + $" identify has already been encountered under the name \'{registeredParam.Name}\'.");
-            }
-
-            registeredParam.Name = actualParamName;
-            return true;
         }
     }
 }

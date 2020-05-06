@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.Azure.AvailabilityMonitoring;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,9 +17,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.Extensions
             serviceCollection.AddSingleton<INameResolver, AvailabilityMonitoringNameResolver>();
             //serviceCollection.AddSingleton<ITelemetryInitializer, AvailabilityMonitoringTelemetryInitializer>();
 
-#pragma warning disable CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+            serviceCollection.AddSingleton<AvailabilityTestRegistry>();
+
+// Type 'IFunctionFilter' (and other Filter-related types) is marked as preview/obsolete,
+// but the guidance from the Azure Functions team is to use it, so we disable the warning.
+#pragma warning disable CS0618
             serviceCollection.AddSingleton<IFunctionFilter, FunctionInvocationManagementFilter>();
-#pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
+#pragma warning restore CS0618
 
             builder.AddExtension<AvailabilityMonitoringExtensionConfigProvider>();
             return builder;
