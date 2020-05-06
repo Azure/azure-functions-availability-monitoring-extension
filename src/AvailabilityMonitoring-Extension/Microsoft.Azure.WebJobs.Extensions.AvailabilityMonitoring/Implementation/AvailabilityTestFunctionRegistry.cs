@@ -187,7 +187,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 // Type 'FunctionInvocationContext' (and other Filter-related types) is marked as preview/obsolete,
 // but the guidance from the Azure Functions team is to use it, so we disable the warning.
 #pragma warning disable CS0618
-        private void GetTestConfigFromMetadata(string functionName,
+        private static void GetTestConfigFromMetadata(string functionName,
                                                FunctionInvocationContext functionInvocationContext, 
                                                ILogger log, 
                                                out bool isAvailabilityTest, 
@@ -257,7 +257,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 // Type 'FunctionInvocationContext' (and other Filter-related types) is marked as preview/obsolete,
 // but the guidance from the Azure Functions team is to use it, so we disable the warning.
 #pragma warning disable CS0618
-        private string ReadFunctionMetadataFile(FunctionInvocationContext functionInvocationContext)
+        private static string ReadFunctionMetadataFile(FunctionInvocationContext functionInvocationContext)
 #pragma warning restore CS0618 
         {
             // We will do very verbose error checking and logging via exceptions here to aid supportability
@@ -283,10 +283,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 throw new InvalidOperationException(NeedContextArgumentErrorPrefix + " Such entry exists, but the value is null.");
             }
 
-            string functionAppDir;
+            string metadataFilePath;
             if (execContextObj is ExecutionContext execContext)
             {
-                functionAppDir = execContext.FunctionAppDirectory ?? String.Empty;
+                metadataFilePath = GetFullFunctionMetadataPath(execContext);
             }
             else
             { 
@@ -294,15 +294,37 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                  + $" Such entry exists, but is has the wrong type (\"{execContextObj.GetType().Name}\").");
             }
             
-            string metadataFilePath = Path.Combine(functionAppDir, "function.json");
-                
-            if (! File.Exists(metadataFilePath))
-            {
-                throw new InvalidOperationException($"Determined that the Metadata File Path the this Function is \"{metadataFilePath}\", but that file does not exist.");
-            }
-
             string metadataFileContent = File.ReadAllText(metadataFilePath);
             return metadataFileContent;
+        }
+
+        private static string GetFullFunctionMetadataPath(ExecutionContext execContext)
+        {
+            const string functionJson = "function.json";
+
+            string functionDir = execContext.FunctionDirectory ?? String.Empty;
+            string metadataFilePathInFuncDir = Path.Combine(functionDir, functionJson);
+
+            if (File.Exists(metadataFilePathInFuncDir))
+            {
+                return metadataFilePathInFuncDir;
+            }
+
+            // We did not find function.json where it should be (in FunctionDirectory).
+            // Let us attempt to look in FunctionAppDirectory as a fallback.
+            // @ToDo: Is this reqired / safe?
+
+            string functionAppDir = execContext.FunctionAppDirectory ?? String.Empty;
+            string metadataFilePathInAppDir = Path.Combine(functionAppDir, functionJson);
+
+            if (File.Exists(metadataFilePathInAppDir))
+            {
+                return metadataFilePathInAppDir;
+            }
+
+            throw new InvalidOperationException($"Looked for the Function Metadata File (\"{functionJson}\") first in"
+                                              + $" \"{metadataFilePathInFuncDir}\" and then in \"{metadataFilePathInAppDir}\","
+                                              +  " but that file does not exist.");
         }
     }
 }

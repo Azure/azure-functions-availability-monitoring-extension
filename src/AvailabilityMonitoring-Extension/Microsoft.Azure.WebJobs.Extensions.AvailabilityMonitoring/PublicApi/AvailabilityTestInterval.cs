@@ -23,7 +23,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         private static readonly Random Rnd = new Random();
 
-
         internal static bool IsSpecification(string testIntervalSpec)
         {
             // Ignore nulls and empty strings:

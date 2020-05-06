@@ -53,11 +53,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             FluentBindingRule<AvailabilityTestInfoAttribute> testInfoRule = extensionConfigContext.AddBindingRule<AvailabilityTestInfoAttribute>();
 #pragma warning restore CS0618
 
-            // This binding provider exists soley to allow us to inspect functions to determine whether they are Availability Tests.
-            // It uses BindingProviderContext, which is not available when binding via BindToCollector(..) as
-            // we do for the actual return value below.
-            //testResultRule.Bind(new AvailabilityTestDiscoveryBindingProvider(_availabilityTestRegistry, _log));
-
             // This binding is used to get and process the return value of the function:
             testResultRule.BindToCollector<AvailabilityTestResultAttribute, AvailabilityTelemetry>(CreateAvailabilityTelemetryAsyncCollector);
             testResultRule.BindToCollector<AvailabilityTestResultAttribute, bool>(CreateBoolAsyncCollector);

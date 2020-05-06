@@ -28,7 +28,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             }
         }
 
-       
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         public static Logging Log { get { return AvailabilityTest.Logging.SingeltonInstance; } }
@@ -42,14 +41,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             return StartNew(testConfig, telemetryConfig, flushOnDispose, log, logScope: null);
         }
 
-        internal static AvailabilityTestScope StartNew(IAvailabilityTestConfiguration testConfig,
-                                                       TelemetryClient telemetryClient,
-                                                       bool flushOnDispose,
-                                                       ILogger log)
-        {
-            return StartNew(testConfig, telemetryClient, flushOnDispose, log, logScope: null);
-        }
-
         internal static AvailabilityTestScope StartNew(IAvailabilityTestConfiguration testConfig, 
                                                        TelemetryConfiguration telemetryConfig, 
                                                        bool flushOnDispose, 
@@ -60,16 +51,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             return StartNew(testConfig.TestDisplayName, testConfig.LocationDisplayName, testConfig.LocationId, telemetryConfig, flushOnDispose, log, logScope);
         }
 
-        internal static AvailabilityTestScope StartNew(IAvailabilityTestConfiguration testConfig, 
-                                                       TelemetryClient telemetryClient, 
-                                                       bool flushOnDispose, 
-                                                       ILogger log,
-                                                       object logScope)
-        {
-            Validate.NotNull(testConfig, nameof(testConfig));
-            return StartNew(testConfig.TestDisplayName, testConfig.LocationDisplayName, testConfig.LocationId, telemetryClient, flushOnDispose, log, logScope);
-        }
-
         public static AvailabilityTestScope StartNew(string testDisplayName,
                                                      string locationDisplayName,
                                                      TelemetryConfiguration telemetryConfig,
@@ -83,16 +64,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         public static AvailabilityTestScope StartNew(string testDisplayName,
                                                      string locationDisplayName,
-                                                     TelemetryClient telemetryClient,
-                                                     bool flushOnDispose,
-                                                     ILogger log)
-        {
-            string locationId = Format.LocationNameAsId(locationDisplayName);
-            return StartNew(testDisplayName, locationDisplayName, locationId, telemetryClient, flushOnDispose, log, logScope: null);
-        }
-
-        public static AvailabilityTestScope StartNew(string testDisplayName,
-                                                     string locationDisplayName,
                                                      string locationId,
                                                      TelemetryConfiguration telemetryConfig,
                                                      bool flushOnDispose,
@@ -100,16 +71,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         {
             return StartNew(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope: null);
-        }
-
-        public static AvailabilityTestScope StartNew(string testDisplayName,
-                                                     string locationDisplayName,
-                                                     string locationId,
-                                                     TelemetryClient telemetryClient,
-                                                     bool flushOnDispose,
-                                                     ILogger log)
-        {
-            return StartNew(testDisplayName, locationDisplayName, locationId, telemetryClient, flushOnDispose, log, logScope: null);
         }
 
         public static AvailabilityTestScope StartNew(string testDisplayName, 
@@ -121,23 +82,9 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                                      object logScope)
 
         {
-            Validate.NotNull(telemetryConfig, nameof(telemetryConfig));
-
-            var telemetryClient = new TelemetryClient(telemetryConfig);
-            return StartNew(testDisplayName, locationDisplayName, locationId, telemetryClient, flushOnDispose,log, logScope);
-        }
-
-        public static AvailabilityTestScope StartNew(string testDisplayName,
-                                                     string locationDisplayName, 
-                                                     string locationId, 
-                                                     TelemetryClient telemetryClient, 
-                                                     bool flushOnDispose, 
-                                                     ILogger log, 
-                                                     object logScope)
-        {
             log = AvailabilityTest.Log.CreateFallbackLogIfRequired(log);
-           
-            var testScope = new AvailabilityTestScope(testDisplayName, locationDisplayName, locationId, telemetryClient, flushOnDispose, log, logScope);
+
+            var testScope = new AvailabilityTestScope(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope);
             testScope.Start();
 
             return testScope;

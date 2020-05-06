@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.Threading;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Azure.AvailabilityMonitoring
 {
@@ -36,10 +38,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         private const string PropertyName_AssociatedAvailabilityResult_Id =          "AssociatedAvailabilityResult.Id";
         private const string PropertyName_AssociatedAvailabilityResult_IsTimeout =   "AssociatedAvailabilityResult.IsTimeout";
 
-        private readonly string _testDisplayName;
-        private readonly string _locationDisplayName;
-        private readonly string _locationId;
-
+        private readonly string _instrumentationKey;
         private readonly TelemetryClient _telemetryClient;
         private readonly bool _flushOnDispose;
         private readonly ILogger _log;
@@ -55,24 +54,26 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         public AvailabilityTestScope.Stage CurrentStage { get { return (AvailabilityTestScope.Stage) _currentStage; } }
 
-        public string TestDisplayName { get { return _testDisplayName; } }
+        public string TestDisplayName { get; }
 
-        public string LocationDisplayName { get { return _locationDisplayName; } }
+        public string LocationDisplayName { get; }
 
-        public string LocationId { get { return _locationId; } }
+        public string LocationId { get; }
 
-        public AvailabilityTestScope(string testDisplayName, string locationDisplayName, string locationId, TelemetryClient telemetryClient, bool flushOnDispose, ILogger log, object logScope)
+        public AvailabilityTestScope(string testDisplayName, string locationDisplayName, string locationId, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
             Validate.NotNullOrWhitespace(locationDisplayName, nameof(locationDisplayName));
             Validate.NotNullOrWhitespace(locationId, nameof(locationId));
-            Validate.NotNull(telemetryClient, nameof(telemetryClient));
+            Validate.NotNull(telemetryConfig, nameof(telemetryConfig));
 
-            _testDisplayName = testDisplayName;
-            _locationDisplayName = locationDisplayName;
-            _locationId = locationId;
+            this.TestDisplayName = testDisplayName;
+            this.LocationDisplayName = locationDisplayName;
+            this.LocationId = locationId;
 
-            _telemetryClient = telemetryClient;
+            _instrumentationKey = telemetryConfig.InstrumentationKey;
+            _telemetryClient = new TelemetryClient(telemetryConfig);
+
             _flushOnDispose = flushOnDispose;
 
             _log = log;
@@ -87,12 +88,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             {
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Start)} beginning:"
                                     + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\"}}",
-                                        _testDisplayName, _locationDisplayName, _locationId);
+                                        TestDisplayName, LocationDisplayName, LocationId);
 
                 TransitionStage(from: Stage.New, to: Stage.Started);
 
                 // Start activity:
-                string activityOperationName = Format.SpanOperationName(_testDisplayName, _locationDisplayName);
+                string activityOperationName = Format.SpanOperationName(TestDisplayName, LocationDisplayName);
                 _activitySpan = new Activity(activityOperationName).Start();
                 _activitySpanId = Format.SpanId(_activitySpan);
 
@@ -102,7 +103,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Start)} finished:"
                                     + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                     + " SpanId=\"{SpanId}\", StartTime=\"{StartTime}\", OperationName=\"{OperationName}\"}}",
-                                        _testDisplayName, _locationDisplayName, _locationId,
+                                        TestDisplayName, LocationDisplayName, LocationId,
                                         _activitySpanId, _startTime.ToString("o"), activityOperationName);
             }
         }
@@ -115,7 +116,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                    + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                    + " SpanId=\"{SpanId}\"}}",
                                      success,
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      Format.SpellIfNull(_activitySpanId));
 
                 EnsureStage(Stage.Started);
@@ -138,7 +139,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                 + " SpanId=\"{SpanId}\"}}."
                                 + " This indicates that the test result was not set by calling Complete(..); a Failure will be assumed.",
                                     disposing,
-                                    _testDisplayName, _locationDisplayName, _locationId,
+                                    TestDisplayName, LocationDisplayName, LocationId,
                                     Format.SpellIfNull(_activitySpanId));
 
             EnsureStage(Stage.Started);
@@ -162,11 +163,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         {
             using (_log.BeginScopeSafe(_logScope))
             {
-                _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} invoked with ExceptionType={{ExceptionType}} and IsTimeout={{IsTimeout}}:"
-                                   + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
-                                   + " SpanId=\"{SpanId}\"}}",
-                                     Format.SpellIfNull(error?.GetType()?.Name), isTimeout,
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} invoked with"
+                                   +  " (ExceptionType={ExceptionType}, ExceptionMessage=\"{ExceptionMessage}\", IsTimeout={IsTimeout}):"
+                                   +  " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
+                                   +  " SpanId=\"{SpanId}\"}}",
+                                     Format.SpellIfNull(error?.GetType()?.Name), Format.LimitLength(error.Message, 100, trim: true), isTimeout,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      Format.SpellIfNull(_activitySpanId));
 
                 EnsureStage(Stage.Started);
@@ -201,7 +203,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} beginning:"
                                    + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                    + " SpanId=\"{SpanId}\"}}",
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      Format.SpellIfNull(_activitySpanId));
 
                 Validate.NotNull(availabilityResult, nameof(availabilityResult));
@@ -254,28 +256,28 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
                 if (String.IsNullOrWhiteSpace(availabilityResult.Name))
                 {
-                    availabilityResult.Name = _testDisplayName;
+                    availabilityResult.Name = TestDisplayName;
                 }
-                else if (! availabilityResult.Name.Equals(_testDisplayName, StringComparison.Ordinal))
+                else if (! availabilityResult.Name.Equals(TestDisplayName, StringComparison.Ordinal))
                 {
                     _log?.LogDebug($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} (SpanId=\"{{SpanId}}\") detected that the Name of the"
                                  + $" specified Availability Result is different from the corresponding value of this {nameof(AvailabilityTestScope)}."
                                  + $" The value specified in the Availability Result takes precedence for tracking."
-                                 +  " AvailabilityTestScope_TestDisplayName=\"{AvailabilityTestScope_TestDisplayName}\". AvailabilityResult_Name=\"{AvailabilityResult_Name}\"",
-                                    _activitySpanId, _testDisplayName, availabilityResult.Name);
+                                 +  " AvailabilityTestScopeTestDisplayName=\"{AvailabilityTestScope_TestDisplayName}\". AvailabilityResult_Name=\"{AvailabilityResult_Name}\"",
+                                    _activitySpanId, TestDisplayName, availabilityResult.Name);
                 }
 
                 if (String.IsNullOrWhiteSpace(availabilityResult.RunLocation))
                 {
-                    availabilityResult.RunLocation = _locationDisplayName;
+                    availabilityResult.RunLocation = LocationDisplayName;
                 }
-                else if (! availabilityResult.RunLocation.Equals(_locationDisplayName, StringComparison.Ordinal))
+                else if (! availabilityResult.RunLocation.Equals(LocationDisplayName, StringComparison.Ordinal))
                 {
                     _log?.LogDebug($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} (SpanId=\"{{SpanId}}\") detected that the RunLocation of the"
                                  + $" specified Availability Result is different from the corresponding value of this {nameof(AvailabilityTestScope)}."
                                  + $" The value specified in the Availability Result takes precedence for tracking."
                                  +  " AvailabilityTestScope_LocationDisplayName=\"{AvailabilityTestScope_LocationDisplayName}\". AvailabilityResult_RunLocation=\"{AvailabilityResult_RunLocation}\"",
-                                    _activitySpanId, _locationDisplayName, availabilityResult.RunLocation);
+                                    _activitySpanId, LocationDisplayName, availabilityResult.RunLocation);
                 }
 
                 if (! availabilityResult.Properties.TryGetValue(PropertyName_WebtestLocationId, out string availabilityResultLocationId))
@@ -285,15 +287,15 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
                 if (String.IsNullOrWhiteSpace(availabilityResultLocationId))
                 {
-                    availabilityResult.Properties[PropertyName_WebtestLocationId] = _locationId;
+                    availabilityResult.Properties[PropertyName_WebtestLocationId] = LocationId;
                 }
-                else if (! availabilityResultLocationId.Equals(_locationId, StringComparison.Ordinal))
+                else if (! availabilityResultLocationId.Equals(LocationId, StringComparison.Ordinal))
                 {
                     _log?.LogDebug($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} (SpanId=\"{{SpanId}}\") detected that the WebtestLocationId of the"
                                  + $" specified Availability Result is different from the corresponding value of this {nameof(AvailabilityTestScope)}."
                                  + $" The value specified in the Availability Result takes precedence for tracking."
                                  +  " AvailabilityTestScope_LocationId=\"{AvailabilityTestScope_LocationId}\". AvailabilityResult_WebtestLocationId=\"{AvailabilityResult_WebtestLocationId}\"",
-                                    _activitySpanId, _locationId, availabilityResultLocationId);
+                                    _activitySpanId, LocationId, availabilityResultLocationId);
                 }
 
                 // The user may or may not have set the ID of the availability result telemetry.
@@ -306,7 +308,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} finished"
                                    + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                    + " SpanId=\"{SpanId}\", StartTime=\"{StartTime}\", EndTime=\"{EndTime}\", Duration=\"{Duration}\", Success=\"{Success}\"}}",
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      _activitySpanId, _startTime.ToString("o"), _endTime.ToString("o"), duration, availabilityResult.Success);
             }
         }
@@ -314,7 +316,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         public AvailabilityTestInfo CreateAvailabilityTestInfo()
         {
             AvailabilityTelemetry defaultAvailabilityResult = CreateDefaultAvailabilityResult();
-            var testInfo = new AvailabilityTestInfo(_testDisplayName, _locationDisplayName, _locationId, _startTime, defaultAvailabilityResult);
+            var testInfo = new AvailabilityTestInfo(TestDisplayName, LocationDisplayName, LocationId, _startTime, defaultAvailabilityResult);
             return testInfo;
         }
 
@@ -359,7 +361,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Dispose)} beginning:"
                                    + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                    + " SpanId=\"{SpanId}\", CurrentStage=\"{CurrentStage}\", Disposing=\"{Disposing}\"}}",
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      Format.SpellIfNull(_activitySpanId), stage, disposing);
 
                 switch (stage)
@@ -386,7 +388,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Dispose)} finished:"
                                    + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                    + " SpanId=\"{SpanId}\", CurrentStage=\"{CurrentStage}\", Disposing=\"{Disposing}\"}}",
-                                     _testDisplayName, _locationDisplayName, _locationId,
+                                     TestDisplayName, LocationDisplayName, LocationId,
                                      Format.SpellIfNull(_activitySpanId), CurrentStage, disposing);
             }
         }
@@ -396,7 +398,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(SendResult)} beginning:"
                                + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                + " SpanId=\"{SpanId}\"}}",
-                                 _testDisplayName, _locationDisplayName, _locationId,
+                                 TestDisplayName, LocationDisplayName, LocationId,
                                  Format.SpellIfNull(_activitySpanId));
 
             TransitionStage(from: Stage.Completed, to: Stage.SentResults);
@@ -415,7 +417,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(SendResult)} finished:"
                                + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                + " SpanId=\"{SpanId}\"}}",
-                                 _testDisplayName, _locationDisplayName, _locationId,
+                                 TestDisplayName, LocationDisplayName, LocationId,
                                  Format.SpellIfNull(_activitySpanId));
         }
 
@@ -426,7 +428,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)} is flushing its {nameof(TelemetryClient)}:"
                                + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                + " SpanId=\"{SpanId}\", CurrentStage=\"{CurrentStage}\", FlushOnDispose=\"{FlushOnDispose}\"}}",
-                                 _testDisplayName, _locationDisplayName, _locationId,
+                                 TestDisplayName, LocationDisplayName, LocationId,
                                  Format.SpellIfNull(_activitySpanId), CurrentStage, _flushOnDispose);
 
                 _telemetryClient.Flush();
@@ -436,7 +438,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)} is NOT flushing its {nameof(TelemetryClient)}:"
                                                + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                                + " SpanId=\"{SpanId}\", CurrentStage=\"{CurrentStage}\", FlushOnDispose=\"{FlushOnDispose}\"}}",
-                                                 _testDisplayName, _locationDisplayName, _locationId,
+                                                 TestDisplayName, LocationDisplayName, LocationId,
                                                  Format.SpellIfNull(_activitySpanId), CurrentStage, _flushOnDispose);
             }
         }
@@ -467,8 +469,8 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             availabilityResult.Duration = TimeSpan.Zero;
             availabilityResult.Success = false;
 
-            availabilityResult.Name = _testDisplayName;
-            availabilityResult.RunLocation = _locationDisplayName;
+            availabilityResult.Name = TestDisplayName;
+            availabilityResult.RunLocation = LocationDisplayName;
             availabilityResult.Properties["WebtestLocationId"] = this.LocationId;
 
             //availabilityResult.Properties["SyntheticMonitorId"] = $"default_{this.TestArmResourceName}_{this.LocationId}";
@@ -478,6 +480,11 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             //                                                      + $"/applications/{mockApplicationInsightsArmResourceName}"
             //                                                      + $"/features/{this.TestArmResourceName}"
             //                                                      + $"/locations/{this.LocationId}";
+
+            if (! String.IsNullOrWhiteSpace(_instrumentationKey))
+            {
+                availabilityResult.Context.InstrumentationKey = _instrumentationKey;
+            }
 
             return availabilityResult;
         }

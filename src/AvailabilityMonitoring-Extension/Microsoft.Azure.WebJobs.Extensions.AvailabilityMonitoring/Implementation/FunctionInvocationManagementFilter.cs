@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ApplicationInsights;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.AvailabilityMonitoring;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Configuration;
@@ -18,16 +19,16 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 #pragma warning restore CS0618 // Type or member is obsolete (Filter-related types are obsolete, but we want to use them)
     {
         private readonly AvailabilityTestRegistry _availabilityTestRegistry;
-        private readonly TelemetryClient _telemetryClient;
+        private readonly TelemetryConfiguration _telemetryConfiguration;
         private readonly AvailabilityTestScopeSettingsResolver _availabilityTestScopeSettingsResolver;
 
-        public FunctionInvocationManagementFilter(AvailabilityTestRegistry availabilityTestRegistry, TelemetryClient telemetryClient, IConfiguration configuration, INameResolver nameResolver)
+        public FunctionInvocationManagementFilter(AvailabilityTestRegistry availabilityTestRegistry, TelemetryConfiguration telemetryConfiguration, IConfiguration configuration, INameResolver nameResolver)
         {
             Validate.NotNull(availabilityTestRegistry, nameof(availabilityTestRegistry));
-            Validate.NotNull(telemetryClient, nameof(telemetryClient));
+            Validate.NotNull(telemetryConfiguration, nameof(telemetryConfiguration));
 
             _availabilityTestRegistry = availabilityTestRegistry;
-            _telemetryClient = telemetryClient;
+            _telemetryConfiguration = telemetryConfiguration;
             _availabilityTestScopeSettingsResolver = new AvailabilityTestScopeSettingsResolver(configuration, nameResolver);
         }
 
@@ -112,7 +113,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 IAvailabilityTestConfiguration resolvedTestConfig = _availabilityTestScopeSettingsResolver.Resolve(testConfig, functionName);
 
                 // Start the availability test scope (this will start timers and set up the activity span):
-                AvailabilityTestScope testScope = AvailabilityTest.StartNew(resolvedTestConfig, _telemetryClient, flushOnDispose: true, log, logScopeInfo);
+                AvailabilityTestScope testScope = AvailabilityTest.StartNew(resolvedTestConfig, _telemetryConfiguration, flushOnDispose: true, log, logScopeInfo);
                 invocationState.AttachTestScope(testScope);
 
                 // If we have previously instantiated a result collector, initialize it now:
@@ -215,15 +216,16 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             // If configured, use a fall-back logger:
             log = AvailabilityTest.Log.CreateFallbackLogIfRequired(log);
+            const int MaxErrorMessageLength = 100;
 
             IReadOnlyDictionary<string, object> logScopeInfo = LogMonikers.Scopes.CreateForTestInvocation(functionName);
             using (log?.BeginScopeSafe(logScopeInfo))
             {
                 log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) beginning:"
                                 + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
-                                + " ErrorType=\"{ErrorType}\"}}",
+                                + " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
                                  functionName, functionInstanceId,
-                                 Format.SpellIfNull(error?.GetType()?.Name));
+                                 Format.SpellIfNull(error?.GetType()?.Name), Format.LimitLength(error?.Message, MaxErrorMessageLength, trim: true));
 
                 // A function is an Availability Test iff is has a return value marked with [AvailabilityTestResult];
                 // whereas a [AvailabilityTestInfo] is optional to get test information at runtime.
@@ -238,9 +240,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                     log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
                                 + " This function invocation instance is not being tracked."
                                 + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
-                                + " ErrorType=\"{ErrorType}\"}}",
+                                + " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
                                  functionName, functionInstanceId,
-                                 Format.SpellIfNull(error?.GetType()?.Name));
+                                 Format.SpellIfNull(error?.GetType()?.Name), Format.LimitLength(error?.Message, MaxErrorMessageLength, trim: true));
                     return;
                 }
 
@@ -252,9 +254,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                     log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
                                 + " No error to be handled."
                                 + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
-                                + " ErrorType=\"{ErrorType}\"}}",
+                                + " ErrorType=\"{ErrorType}\", , ErrorMessage=\"{ErrorMessage}\"}}",
                                  functionName, functionInstanceId,
-                                 Format.SpellIfNull(error?.GetType()?.Name));
+                                 Format.SpellIfNull(null), Format.LimitLength(null, MaxErrorMessageLength, trim: true));
                     return;
                 }
 
@@ -264,7 +266,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 {
                     // This should never happen!
 
-                    log?.LogError($"Availability Test Post-Function error handling routine (via {entryPointName}) finised:"
+                    log?.LogError($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:"
                                 +  " Error: No AvailabilityTestScope was attached to the invocation state - Cannot continue processing!"
                                 +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\"}}"
                                 +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\"}}",
@@ -278,7 +280,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 testScope.Complete(error, isTimeout);
                 testScope.Dispose();
 
-                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finidhed:"
+                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished" +
+                    $":"
                             + $" {nameof(AvailabilityTestScope)} was completed and disposed."
                             +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
                             +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\","
@@ -286,7 +289,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             +  " LocationDisplayName=\"{LocationDisplayName}\","
                             +  " LocationId=\"{LocationId}\"}} }}",
                              functionName, functionInstanceId,
-                             error.GetType().Name, error.Message,
+                             error.GetType().Name, Format.LimitLength(error.Message, MaxErrorMessageLength, trim: true),
                              testScope.TestDisplayName, testScope.LocationDisplayName, testScope.LocationId);
             }
         }

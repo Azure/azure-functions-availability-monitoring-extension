@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Microsoft.Azure.AvailabilityMonitoring
 {
@@ -63,11 +65,54 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             }
         }
 
-        internal static string LocationNameAsId(string locationDisplayName)
+        public static string LocationNameAsId(string locationDisplayName)
         {
             string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
             return locationId;
         }
-        
+
+        public static string LimitLength(object value, int maxLength, bool trim)
+        {
+            string valueStr = value?.ToString();
+            return LimitLength(valueStr, maxLength, trim);
+        }
+
+        public static string LimitLength(string value, int maxLength, bool trim)
+        {
+            if (maxLength < 0)
+            {
+                throw new ArgumentException($"{nameof(maxLength)} may not be smaller than zero, but it was {maxLength}.");
+            }
+
+            const string FillStr = "...";
+            int fillStrLen = FillStr.Length;
+
+            value = SpellIfNull(value);
+            value = trim ? value.Trim() : value;
+            int valueLen = value.Length;
+
+            if (valueLen <= maxLength)
+            {
+                return value;
+            }
+
+            if (maxLength < fillStrLen + 2)
+            {
+                string superShortResult = value.Substring(0, maxLength);
+                return superShortResult;
+            }
+
+            int postLen = (maxLength - fillStrLen) / 2;
+            int preLen = maxLength - fillStrLen - postLen;
+
+            string postStr = value.Substring(valueLen - postLen, postLen);
+            string preStr = value.Substring(0, preLen);
+
+            var shortResult = new StringBuilder(preStr, maxLength);
+            shortResult.Append(FillStr);
+            shortResult.Append(postStr);
+
+            return shortResult.ToString();
+        }
     }
 }
