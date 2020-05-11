@@ -299,8 +299,16 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 }
 
                 // The user may or may not have set the ID of the availability result telemetry.
-                // Either way, we myst set it to the right value, otherwise distributed tracing will break:
+                // Either way, we must set it to the right value, otherwise distributed tracing will break:
                 availabilityResult.Id = _activitySpanId;
+
+                // Similarly, whatever iKey the user set, we insist on the value from this scope's telemetry configuration to make
+                // sure everything ends up in the right place.
+                // Users may request a feature to allow sending availabuility results to an iKey that is different from other telemetry.
+                // If so, we should consider exposing a corresponsing parameter on the ctor of this class and - corresponsingly - on 
+                // the AvailabilityTestResultAttribute. In that case we must also do the appropriate thing with the traces sent by this
+                // class. Sending them and the telemetry result to different destinations may be a failure pit for the user.
+                availabilityResult.Context.InstrumentationKey = _instrumentationKey;
 
                 // Store the result, but do not send it until SendResult() is called:
                 _finalAvailabilityResult = availabilityResult;

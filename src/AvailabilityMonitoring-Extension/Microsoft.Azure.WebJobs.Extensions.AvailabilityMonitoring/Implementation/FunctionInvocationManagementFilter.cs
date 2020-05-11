@@ -280,8 +280,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 testScope.Complete(error, isTimeout);
                 testScope.Dispose();
 
-                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished" +
-                    $":"
+                log?.LogDebug($"Availability Test Post-Function error handling routine (via {entryPointName}) finished:" 
                             + $" {nameof(AvailabilityTestScope)} was completed and disposed."
                             +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
                             +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\","
