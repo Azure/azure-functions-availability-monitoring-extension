@@ -18,6 +18,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Azure.WebJobs.Script.WebHost
 {
+#pragma warning disable CS0618 // Type or member is obsolete
     public static class AvailabilityTestWebJobsBuilderExtensions
     {
         public static IWebJobsBuilder AddAvailabilityTests(this IWebJobsBuilder builder)
@@ -310,6 +311,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
         }
     }
+#pragma warning restore CS0618 // Type or member is obsolete
 
     public static class RuleExtensions
     {

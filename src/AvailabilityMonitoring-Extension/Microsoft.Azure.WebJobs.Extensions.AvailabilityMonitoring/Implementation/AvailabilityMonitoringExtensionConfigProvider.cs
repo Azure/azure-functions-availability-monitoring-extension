@@ -61,7 +61,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             // This is an optional In-parameter that allows user code to get runtime info about the availablity test:
             testInfoRule.BindToInput<AvailabilityTestInfo>(CreateAvailabilityTestInfo);
             extensionConfigContext.AddConverter<AvailabilityTestInfo, string>(Convert.AvailabilityTestInfoToString);
-            extensionConfigContext.AddConverter<AvailabilityTestInfo, AvailabilityTelemetry>(Convert.AvailabilityTestInfoToAvailabilityTelemetry);
         }
 
         private Task<IAsyncCollector<AvailabilityTelemetry>> CreateAvailabilityTelemetryAsyncCollector(AvailabilityTestResultAttribute attribute, ValueBindingContext valueBindingContext)
