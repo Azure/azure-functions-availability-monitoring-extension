@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.AvailabilityMonitoring;
+using Microsoft.Azure.AvailabilityMonitoring.Extensions;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,7 +16,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.Extensions
             IServiceCollection serviceCollection = builder.Services;
 
             serviceCollection.AddSingleton<INameResolver, AvailabilityMonitoringNameResolver>();
-            //serviceCollection.AddSingleton<ITelemetryInitializer, AvailabilityMonitoringTelemetryInitializer>();
+            serviceCollection.AddSingleton<ITelemetryInitializer, AvailabilityMonitoringTelemetryInitializer>();
 
             serviceCollection.AddSingleton<AvailabilityTestRegistry>();
 

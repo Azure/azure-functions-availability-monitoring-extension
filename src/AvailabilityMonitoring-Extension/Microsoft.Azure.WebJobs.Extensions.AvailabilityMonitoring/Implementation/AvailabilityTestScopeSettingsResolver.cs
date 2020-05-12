@@ -142,7 +142,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
             if (locationId == null)
             {
-                locationId = Format.LocationNameAsId(locationDisplayName);
+                locationId = Format.AvailabilityTest.LocationNameAsId(locationDisplayName);
             }
 
             if (String.IsNullOrWhiteSpace(locationId))

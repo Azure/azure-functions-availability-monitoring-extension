@@ -10,8 +10,5 @@
         "logLevel": {
             "default": "Trace"
         }
-    },
-    "availabilityTestResults": {
-        "LocationDisplayName": "Location Name for this App"
     }
 }

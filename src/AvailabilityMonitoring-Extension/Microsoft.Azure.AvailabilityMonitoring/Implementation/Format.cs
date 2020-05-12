@@ -16,17 +16,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             return functionInstanceId.ToString("D");
         }
 
-        public static string SpanOperationName(string testDisplayName, string locationDisplayName)
-        {
-            return String.Format("AvailabilityTest={{TestDisplayName=\"{0}\", LocationDisplayName=\"{1}\"}}", SpellIfNull(testDisplayName), SpellIfNull(locationDisplayName));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string SpanId(Activity activity)
-        {
-            return SpellIfNull(activity?.SpanId.ToHexString());
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string SpellIfNull(string str)
         {
@@ -39,6 +28,21 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             return val ?? NullWord;
         }
 
+        public static string QuoteOrSpellNull(string str)
+        {
+            if (str == null)
+            {
+                return NullWord;
+            }
+
+            var builder = new StringBuilder();
+            builder.Append('"');
+            builder.Append(str);
+            builder.Append('"');
+
+            return builder.ToString();
+        }
+
         public static IEnumerable<string> AsTextLines<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> table)
         {
             string QuoteIfString<T>(T val)
@@ -48,8 +52,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                     return NullWord;
                 }
 
-                string str = (val is string) ? '"' + val.ToString() + '"' : val.ToString();
-                return str;
+                if (val is string valStr)
+                {
+                    return QuoteOrSpellNull(valStr);
+                }
+
+                return val.ToString();
             }
 
             if (table == null)
@@ -63,12 +71,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 string rowStr = $"[{QuoteIfString(row.Key)}] = {QuoteIfString(row.Value)}";
                 yield return rowStr;
             }
-        }
-
-        public static string LocationNameAsId(string locationDisplayName)
-        {
-            string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
-            return locationId;
         }
 
         public static string LimitLength(object value, int maxLength, bool trim)
@@ -113,6 +115,43 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             shortResult.Append(postStr);
 
             return shortResult.ToString();
+        }
+
+        internal static class AvailabilityTest
+        {
+            public static class HttpHeaderNames
+            {
+                // The names of the headers do not perfectly describe the intent, but we use them for compatibility reasons with existing headers used by GSM.
+                // See here:
+                // https://github.com/microsoft/ApplicationInsights-dotnet/blob/d1865fcba9ad9cbb27b623dd8a1bcdc112bf987e/WEB/Src/Web/Web/WebTestTelemetryInitializer.cs#L15
+
+                public const string TestInvocationInstanceDescriptor = "SyntheticTest-RunId";
+                public const string TestInfoDescriptor = "SyntheticTest-Location";
+            }
+
+            public const string SpanOperationNameObjectName = nameof(AvailabilityTestScope);
+
+            public const string TelemetryOperationSyntheticSourceMoniker = nameof(Microsoft) + "." + nameof(Microsoft.Azure) + "." + nameof(Microsoft.Azure.AvailabilityMonitoring) + "." + nameof(AvailabilityTestScope);
+
+            public static string LocationNameAsId(string locationDisplayName)
+            {
+                string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
+                return locationId;
+            }
+
+            public static string SpanOperationName(string testDisplayName, string locationDisplayName)
+            {
+                return String.Format("{0}={{TestDisplayName=\"{1}\", LocationDisplayName=\"{2}\"}}",
+                                     SpanOperationNameObjectName,
+                                     SpellIfNull(testDisplayName),
+                                     SpellIfNull(locationDisplayName));
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string SpanId(Activity activity)
+            {
+                return SpellIfNull(activity?.SpanId.ToHexString());
+            }
         }
     }
 }

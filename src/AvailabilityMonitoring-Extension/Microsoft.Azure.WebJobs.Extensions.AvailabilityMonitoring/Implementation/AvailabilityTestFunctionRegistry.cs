@@ -222,7 +222,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                                                     + " but it did not contain a list of bindings.");
             }
 
-            if (functionMetadata.Bindings == null)
+            if (functionMetadata.Bindings.Count == 0)
             {
                 throw new InvalidOperationException($"The function metadata for function \"{functionName}\" was parsed;"
                                                     + " it contained a list of bindings, but the list had no entries.");

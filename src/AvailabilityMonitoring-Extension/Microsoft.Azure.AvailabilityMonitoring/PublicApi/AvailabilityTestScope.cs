@@ -4,9 +4,7 @@ using System.Threading;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Azure.AvailabilityMonitoring
 {
@@ -48,6 +46,8 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         private Activity _activitySpan = null;
         private string _activitySpanId = null;
+        private string _activitySpanOperationName = null;
+        private string _distributedOperationId = null;
         private DateTimeOffset _startTime = default;
         private DateTimeOffset _endTime = default;
         private AvailabilityTelemetry _finalAvailabilityResult = null;
@@ -59,6 +59,34 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         public string LocationDisplayName { get; }
 
         public string LocationId { get; }
+
+        public string ActivitySpanOperationName 
+        {
+            get 
+            {
+                string activitySpanOperationName = _activitySpanOperationName;
+                if (activitySpanOperationName == null)
+                {
+                    throw new InvalidOperationException($"{nameof(ActivitySpanOperationName)} is not available before this {nameof(AvailabilityTestScope)} has been started.");
+                }
+
+                return activitySpanOperationName;
+            } 
+        }
+
+        public string DistributedOperationId
+        {
+            get
+            {
+                string distributedOperationId = _distributedOperationId;
+                if (distributedOperationId == null)
+                {
+                    throw new InvalidOperationException($"{nameof(DistributedOperationId)} is not available before this {nameof(AvailabilityTestScope)} has been started.");
+                }
+
+                return distributedOperationId;
+            }
+        }
 
         public AvailabilityTestScope(string testDisplayName, string locationDisplayName, string locationId, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
         {
@@ -93,9 +121,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 TransitionStage(from: Stage.New, to: Stage.Started);
 
                 // Start activity:
-                string activityOperationName = Format.SpanOperationName(TestDisplayName, LocationDisplayName);
-                _activitySpan = new Activity(activityOperationName).Start();
-                _activitySpanId = Format.SpanId(_activitySpan);
+                _activitySpanOperationName = Format.AvailabilityTest.SpanOperationName(TestDisplayName, LocationDisplayName);
+                _activitySpan = new Activity(_activitySpanOperationName).Start();
+                _activitySpanId = Format.AvailabilityTest.SpanId(_activitySpan);
+
+                _distributedOperationId = _activitySpan.RootId;
+                //_activitySpan.
 
                 // Start the timer:
                 _startTime = DateTimeOffset.Now;
@@ -104,7 +135,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                     + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                     + " SpanId=\"{SpanId}\", StartTime=\"{StartTime}\", OperationName=\"{OperationName}\"}}",
                                         TestDisplayName, LocationDisplayName, LocationId,
-                                        _activitySpanId, _startTime.ToString("o"), activityOperationName);
+                                        _activitySpanId, _startTime.ToString("o"), _activitySpanOperationName);
             }
         }
 
@@ -299,8 +330,16 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 }
 
                 // The user may or may not have set the ID of the availability result telemetry.
-                // Either way, we myst set it to the right value, otherwise distributed tracing will break:
+                // Either way, we must set it to the right value, otherwise distributed tracing will break:
                 availabilityResult.Id = _activitySpanId;
+
+                // Similarly, whatever iKey the user set, we insist on the value from this scope's telemetry configuration to make
+                // sure everything ends up in the right place.
+                // Users may request a feature to allow sending availabuility results to an iKey that is different from other telemetry.
+                // If so, we should consider exposing a corresponsing parameter on the ctor of this class and - corresponsingly - on 
+                // the AvailabilityTestResultAttribute. In that case we must also do the appropriate thing with the traces sent by this
+                // class. Sending them and the telemetry result to different destinations may be a failure pit for the user.
+                availabilityResult.Context.InstrumentationKey = _instrumentationKey;
 
                 // Store the result, but do not send it until SendResult() is called:
                 _finalAvailabilityResult = availabilityResult;
@@ -463,7 +502,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             else
             {
                 availabilityResult.Timestamp = _startTime.ToUniversalTime();
-                availabilityResult.Id = Format.SpanId(_activitySpan);
+                availabilityResult.Id = _activitySpanId;
             }
 
             availabilityResult.Duration = TimeSpan.Zero;
