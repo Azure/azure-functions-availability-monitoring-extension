@@ -44,6 +44,21 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             return val ?? NullWord;
         }
 
+        public static string QuoteOrSpellNull(string str)
+        {
+            if (str == null)
+            {
+                return NullWord;
+            }
+
+            var builder = new StringBuilder();
+            builder.Append('"');
+            builder.Append(str);
+            builder.Append('"');
+
+            return builder.ToString();
+        }
+
         public static IEnumerable<string> AsTextLines<TKey, TValue>(IEnumerable<KeyValuePair<TKey, TValue>> table)
         {
             string QuoteIfString<T>(T val)
@@ -53,8 +68,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                     return NullWord;
                 }
 
-                string str = (val is string) ? '"' + val.ToString() + '"' : val.ToString();
-                return str;
+                if (val is string valStr)
+                {
+                    return QuoteOrSpellNull(valStr);
+                }
+
+                return val.ToString();
             }
 
             if (table == null)

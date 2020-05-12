@@ -50,9 +50,10 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             string testInvocationInstance = activitySpan.RootId;
             string testDescriptor = activitySpan.OperationName;
 
-            if (! Format.AvailabilityTestSpanOperationNameObjectName.Equals(testDescriptor, StringComparison.OrdinalIgnoreCase))
+            if (testDescriptor == null || false == testDescriptor.StartsWith(Format.AvailabilityTestSpanOperationNameObjectName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException($"The specified {nameof(activitySpan)} does not represent an activity span that was set up by an {nameof(AvailabilityTestScope)}.");
+                throw new ArgumentException($"The specified {nameof(activitySpan)} does not represent an activity span that was set up by an {nameof(AvailabilityTestScope)}"
+                                          + $" ({nameof(activitySpan.OperationName)}={Format.QuoteOrSpellNull(testDescriptor)}).");
             }
 
             httpClient.SetAvailabilityTestRequestHeaders(testInvocationInstance, testDescriptor);
