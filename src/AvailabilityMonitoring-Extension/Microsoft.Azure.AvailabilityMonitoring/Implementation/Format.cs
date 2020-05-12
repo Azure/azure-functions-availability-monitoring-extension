@@ -11,6 +11,8 @@ namespace Microsoft.Azure.AvailabilityMonitoring
     {
         private const string NullWord = "null";
 
+        public const string AvailabilityTestSpanOperationNameObjectName = "AvailabilityTest";
+
         public static string Guid(Guid functionInstanceId)
         {
             return functionInstanceId.ToString("D");
@@ -18,7 +20,10 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         public static string SpanOperationName(string testDisplayName, string locationDisplayName)
         {
-            return String.Format("AvailabilityTest={{TestDisplayName=\"{0}\", LocationDisplayName=\"{1}\"}}", SpellIfNull(testDisplayName), SpellIfNull(locationDisplayName));
+            return String.Format("{0}={{TestDisplayName=\"{1}\", LocationDisplayName=\"{2}\"}}",
+                                 AvailabilityTestSpanOperationNameObjectName,
+                                 SpellIfNull(testDisplayName), 
+                                 SpellIfNull(locationDisplayName));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

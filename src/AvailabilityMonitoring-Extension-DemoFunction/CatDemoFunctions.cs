@@ -26,9 +26,8 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         //                     + $" LocationDisplayName = \"{testInfo.LocationDisplayName ?? "null"}\";"
         //                     + $" LocationId = \"{testInfo.LocationId ?? "null"}\".");
 
-
         //    string responseContent;
-        //    using (var http = new HttpClient())
+        //    using (HttpClient http = AvailabilityTest.NewHttpClient())
         //    {
         //        using (HttpResponseMessage response = await http.GetAsync("https://availabilitymonitoring-extension-monitoredappsample.azurewebsites.net/Home/MonitoredPage"))
         //        {
@@ -63,7 +62,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
 
 
             string responseContent;
-            using (var http = new HttpClient())
+            using (HttpClient http = AvailabilityTest.NewHttpClient())
             {
                 using (HttpResponseMessage response = await http.GetAsync("https://availabilitymonitoring-extension-monitoredappsample.azurewebsites.net/Home/MonitoredPage"))
                 {

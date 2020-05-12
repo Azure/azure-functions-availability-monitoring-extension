@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Net.Http;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.Logging;
@@ -88,6 +89,22 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             testScope.Start();
 
             return testScope;
+        }
+
+        public static HttpClient NewHttpClient(AvailabilityTestScope availabilityTestScope)
+        {
+            Validate.NotNull(availabilityTestScope, nameof(availabilityTestScope));
+
+            var httpClient = new HttpClient();
+            httpClient.SetAvailabilityTestRequestHeaders(availabilityTestScope);
+            return httpClient;
+        }
+
+        public static HttpClient NewHttpClient()
+        {
+            var httpClient = new HttpClient();
+            httpClient.SetAvailabilityTestRequestHeaders();
+            return httpClient;
         }
     }
 }

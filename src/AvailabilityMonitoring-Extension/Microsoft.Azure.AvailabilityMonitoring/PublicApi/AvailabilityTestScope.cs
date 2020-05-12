@@ -4,9 +4,7 @@ using System.Threading;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Azure.AvailabilityMonitoring
 {
@@ -48,6 +46,8 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         private Activity _activitySpan = null;
         private string _activitySpanId = null;
+        private string _activitySpanOperationName = null;
+        private string _distributedOperationId = null;
         private DateTimeOffset _startTime = default;
         private DateTimeOffset _endTime = default;
         private AvailabilityTelemetry _finalAvailabilityResult = null;
@@ -59,6 +59,34 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         public string LocationDisplayName { get; }
 
         public string LocationId { get; }
+
+        public string ActivitySpanOperationName 
+        {
+            get 
+            {
+                string activitySpanOperationName = _activitySpanOperationName;
+                if (activitySpanOperationName == null)
+                {
+                    throw new InvalidOperationException($"{nameof(ActivitySpanOperationName)} is not available before this {nameof(AvailabilityTestScope)} has been started.");
+                }
+
+                return activitySpanOperationName;
+            } 
+        }
+
+        public string DistributedOperationId
+        {
+            get
+            {
+                string distributedOperationId = _distributedOperationId;
+                if (distributedOperationId == null)
+                {
+                    throw new InvalidOperationException($"{nameof(DistributedOperationId)} is not available before this {nameof(AvailabilityTestScope)} has been started.");
+                }
+
+                return distributedOperationId;
+            }
+        }
 
         public AvailabilityTestScope(string testDisplayName, string locationDisplayName, string locationId, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
         {
@@ -93,9 +121,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 TransitionStage(from: Stage.New, to: Stage.Started);
 
                 // Start activity:
-                string activityOperationName = Format.SpanOperationName(TestDisplayName, LocationDisplayName);
-                _activitySpan = new Activity(activityOperationName).Start();
+                _activitySpanOperationName = Format.SpanOperationName(TestDisplayName, LocationDisplayName);
+                _activitySpan = new Activity(_activitySpanOperationName).Start();
                 _activitySpanId = Format.SpanId(_activitySpan);
+
+                _distributedOperationId = _activitySpan.RootId;
+                //_activitySpan.
 
                 // Start the timer:
                 _startTime = DateTimeOffset.Now;
@@ -104,7 +135,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                     + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
                                     + " SpanId=\"{SpanId}\", StartTime=\"{StartTime}\", OperationName=\"{OperationName}\"}}",
                                         TestDisplayName, LocationDisplayName, LocationId,
-                                        _activitySpanId, _startTime.ToString("o"), activityOperationName);
+                                        _activitySpanId, _startTime.ToString("o"), _activitySpanOperationName);
             }
         }
 
