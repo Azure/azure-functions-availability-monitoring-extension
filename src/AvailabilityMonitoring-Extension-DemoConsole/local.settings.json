@@ -2,7 +2,8 @@
     "IsEncrypted": false,
     "Values": {
         "FUNCTIONS_WORKER_RUNTIME": "dotnet",
-        "APPINSIGHTS_INSTRUMENTATIONKEY": "18765e1c-90ea-4efd-a776-55b942954582"
+        "APPINSIGHTS_INSTRUMENTATIONKEY": "18765e1c-90ea-4efd-a776-55b942954582",
+        "Location": "Availabiity Test DevBox"
     },
     "ConnectionStrings": {
         "AzureWebJobsStorage": "UseDevelopmentStorage=true"

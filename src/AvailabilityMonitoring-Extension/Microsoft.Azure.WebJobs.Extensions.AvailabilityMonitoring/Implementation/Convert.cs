@@ -27,8 +27,17 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 return null;
             }
 
-            AvailabilityTelemetry availabilityResult = JsonConvert.DeserializeObject<AvailabilityTelemetry>(str);
-            return availabilityResult;
+            try
+            {
+                AvailabilityTelemetry availabilityResult = JsonConvert.DeserializeObject<AvailabilityTelemetry>(str);
+                return availabilityResult;
+            }
+            catch(Exception ex)
+            {
+                throw new FormatException($"Cannot parse the availability result."
+                                        + $" The availability results must be a valid JSON representation of an {nameof(AvailabilityTelemetry)} object (partial objects are OK).",
+                                          ex);
+            }
         }
     }
 }

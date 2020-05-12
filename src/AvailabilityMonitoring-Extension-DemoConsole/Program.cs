@@ -33,7 +33,7 @@ namespace AvailabilityMonitoringExtensionDemo
                         })
                     .ConfigureLogging((context, loggingBuilder) =>
                         {
-                            loggingBuilder.SetMinimumLevel(LogLevel.Debug);
+                            loggingBuilder.SetMinimumLevel(LogLevel.Trace);
                             loggingBuilder.AddConsole();
 
                             string appInsightsInstrumentationKey = context.Configuration["Values:APPINSIGHTS_INSTRUMENTATIONKEY"];
@@ -42,8 +42,13 @@ namespace AvailabilityMonitoringExtensionDemo
                                 loggingBuilder.AddApplicationInsightsWebJobs((opts) => { opts.InstrumentationKey = appInsightsInstrumentationKey; });
                             }
                         })
-                    .ConfigureServices((serviceCollection) =>
+                    .ConfigureServices((context, serviceCollection) =>
                         {
+                            string location = context.Configuration["Values:Location"];
+                            if (! String.IsNullOrWhiteSpace(location))
+                            {
+                                Environment.SetEnvironmentVariable("Location", location);
+                            }
                         })
                     .UseConsoleLifetime();
 
