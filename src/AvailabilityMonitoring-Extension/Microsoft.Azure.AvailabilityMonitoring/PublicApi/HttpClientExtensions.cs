@@ -7,13 +7,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 {
     public static class HttpClientExtensions
     {
-        // The names of the headers do not perfectly describe the intent, but we use them for compatibility reasons with existing headers used by GSM.
-        // See here:
-        // https://github.com/microsoft/ApplicationInsights-dotnet/blob/d1865fcba9ad9cbb27b623dd8a1bcdc112bf987e/WEB/Src/Web/Web/WebTestTelemetryInitializer.cs#L15
-        
-        private const string TestInvocationInstanceHeaderName = "SyntheticTest-RunId";
-        private const string TestDescriptorHeaderName = "SyntheticTest-Location";
-
         public static void SetAvailabilityTestRequestHeaders(this HttpClient httpClient)
         {
             Validate.NotNull(httpClient, nameof(httpClient));
@@ -36,10 +29,10 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             Validate.NotNull(httpClient, nameof(httpClient));
             Validate.NotNull(availabilityTestScope, nameof(availabilityTestScope));
 
-            string testInvocationInstance = availabilityTestScope.DistributedOperationId;
-            string testDescriptor = availabilityTestScope.ActivitySpanOperationName;
+            string testInfoDescriptor = availabilityTestScope.ActivitySpanOperationName;
+            string testInvocationInstanceDescriptor = availabilityTestScope.DistributedOperationId;
 
-            httpClient.SetAvailabilityTestRequestHeaders(testInvocationInstance, testDescriptor);
+            httpClient.SetAvailabilityTestRequestHeaders(testInfoDescriptor, testInvocationInstanceDescriptor);
         }
 
         public static void SetAvailabilityTestRequestHeaders(this HttpClient httpClient, Activity activitySpan)
@@ -47,27 +40,24 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             Validate.NotNull(httpClient, nameof(httpClient));
             Validate.NotNull(activitySpan, nameof(activitySpan));
 
-            string testInvocationInstance = activitySpan.RootId;
-            string testDescriptor = activitySpan.OperationName;
-
-            if (testDescriptor == null || false == testDescriptor.StartsWith(Format.AvailabilityTestSpanOperationNameObjectName, StringComparison.OrdinalIgnoreCase))
+            if (! activitySpan.IsAvailabilityTestSpan(out string testInfoDescriptor, out string testInvocationInstanceDescriptor))
             {
                 throw new ArgumentException($"The specified {nameof(activitySpan)} does not represent an activity span that was set up by an {nameof(AvailabilityTestScope)}"
-                                          + $" ({nameof(activitySpan.OperationName)}={Format.QuoteOrSpellNull(testDescriptor)}).");
+                                         + $" ({nameof(activitySpan.OperationName)}={Format.QuoteOrSpellNull(testInfoDescriptor)}).");
             }
 
-            httpClient.SetAvailabilityTestRequestHeaders(testInvocationInstance, testDescriptor);
+            httpClient.SetAvailabilityTestRequestHeaders(testInfoDescriptor, testInvocationInstanceDescriptor);
         }
 
-        public static void SetAvailabilityTestRequestHeaders(this HttpClient httpClient, string availabilityTestInvocationInstance, string availabilityTestDescriptor)
+        public static void SetAvailabilityTestRequestHeaders(this HttpClient httpClient, string testInfoDescriptor, string testInvocationInstanceDescriptor)
         {
             Validate.NotNull(httpClient, nameof(httpClient));
-            Validate.NotNullOrWhitespace(availabilityTestInvocationInstance, nameof(availabilityTestInvocationInstance));
-            Validate.NotNullOrWhitespace(availabilityTestDescriptor, nameof(availabilityTestDescriptor));
-
+            Validate.NotNullOrWhitespace(testInfoDescriptor, nameof(testInfoDescriptor));
+            Validate.NotNullOrWhitespace(testInvocationInstanceDescriptor, nameof(testInvocationInstanceDescriptor));
+            
             HttpRequestHeaders headers = httpClient.DefaultRequestHeaders;
-            headers.Add(TestInvocationInstanceHeaderName, Format.SpellIfNull(availabilityTestInvocationInstance));
-            headers.Add(TestDescriptorHeaderName, Format.SpellIfNull(availabilityTestDescriptor));
+            headers.Add(Format.AvailabilityTest.HttpHeaderNames.TestInfoDescriptor, Format.SpellIfNull(testInfoDescriptor));
+            headers.Add(Format.AvailabilityTest.HttpHeaderNames.TestInvocationInstanceDescriptor, Format.SpellIfNull(testInvocationInstanceDescriptor));
         }
     }
 }

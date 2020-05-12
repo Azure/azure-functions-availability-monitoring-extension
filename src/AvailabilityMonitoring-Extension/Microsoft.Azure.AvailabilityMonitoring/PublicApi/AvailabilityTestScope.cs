@@ -121,9 +121,9 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 TransitionStage(from: Stage.New, to: Stage.Started);
 
                 // Start activity:
-                _activitySpanOperationName = Format.SpanOperationName(TestDisplayName, LocationDisplayName);
+                _activitySpanOperationName = Format.AvailabilityTest.SpanOperationName(TestDisplayName, LocationDisplayName);
                 _activitySpan = new Activity(_activitySpanOperationName).Start();
-                _activitySpanId = Format.SpanId(_activitySpan);
+                _activitySpanId = Format.AvailabilityTest.SpanId(_activitySpan);
 
                 _distributedOperationId = _activitySpan.RootId;
                 //_activitySpan.
@@ -502,7 +502,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             else
             {
                 availabilityResult.Timestamp = _startTime.ToUniversalTime();
-                availabilityResult.Id = Format.SpanId(_activitySpan);
+                availabilityResult.Id = _activitySpanId;
             }
 
             availabilityResult.Duration = TimeSpan.Zero;

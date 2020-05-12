@@ -59,7 +59,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                                      ILogger log)
 
         {
-            string locationId = Format.LocationNameAsId(locationDisplayName);
+            string locationId = Format.AvailabilityTest.LocationNameAsId(locationDisplayName);
             return StartNew(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope: null);
         }
 

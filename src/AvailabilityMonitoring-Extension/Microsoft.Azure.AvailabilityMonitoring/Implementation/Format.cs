@@ -11,25 +11,9 @@ namespace Microsoft.Azure.AvailabilityMonitoring
     {
         private const string NullWord = "null";
 
-        public const string AvailabilityTestSpanOperationNameObjectName = "AvailabilityTest";
-
         public static string Guid(Guid functionInstanceId)
         {
             return functionInstanceId.ToString("D");
-        }
-
-        public static string SpanOperationName(string testDisplayName, string locationDisplayName)
-        {
-            return String.Format("{0}={{TestDisplayName=\"{1}\", LocationDisplayName=\"{2}\"}}",
-                                 AvailabilityTestSpanOperationNameObjectName,
-                                 SpellIfNull(testDisplayName), 
-                                 SpellIfNull(locationDisplayName));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string SpanId(Activity activity)
-        {
-            return SpellIfNull(activity?.SpanId.ToHexString());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -89,12 +73,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             }
         }
 
-        public static string LocationNameAsId(string locationDisplayName)
-        {
-            string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
-            return locationId;
-        }
-
         public static string LimitLength(object value, int maxLength, bool trim)
         {
             string valueStr = value?.ToString();
@@ -137,6 +115,43 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             shortResult.Append(postStr);
 
             return shortResult.ToString();
+        }
+
+        internal static class AvailabilityTest
+        {
+            public static class HttpHeaderNames
+            {
+                // The names of the headers do not perfectly describe the intent, but we use them for compatibility reasons with existing headers used by GSM.
+                // See here:
+                // https://github.com/microsoft/ApplicationInsights-dotnet/blob/d1865fcba9ad9cbb27b623dd8a1bcdc112bf987e/WEB/Src/Web/Web/WebTestTelemetryInitializer.cs#L15
+
+                public const string TestInvocationInstanceDescriptor = "SyntheticTest-RunId";
+                public const string TestInfoDescriptor = "SyntheticTest-Location";
+            }
+
+            public const string SpanOperationNameObjectName = nameof(AvailabilityTestScope);
+
+            public const string TelemetryOperationSyntheticSourceMoniker = nameof(Microsoft) + "." + nameof(Microsoft.Azure) + "." + nameof(Microsoft.Azure.AvailabilityMonitoring) + "." + nameof(AvailabilityTestScope);
+
+            public static string LocationNameAsId(string locationDisplayName)
+            {
+                string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
+                return locationId;
+            }
+
+            public static string SpanOperationName(string testDisplayName, string locationDisplayName)
+            {
+                return String.Format("{0}={{TestDisplayName=\"{1}\", LocationDisplayName=\"{2}\"}}",
+                                     SpanOperationNameObjectName,
+                                     SpellIfNull(testDisplayName),
+                                     SpellIfNull(locationDisplayName));
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static string SpanId(Activity activity)
+            {
+                return SpellIfNull(activity?.SpanId.ToHexString());
+            }
         }
     }
 }

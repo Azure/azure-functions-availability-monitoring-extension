@@ -12,54 +12,18 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
 {
     public static class CatDemoFunctions
     {
-        //[FunctionName("CatDemo-SimpleBinding")]
-        //[return: AvailabilityTestResult(TestDisplayName = "Validation Test 1", LocationDisplayName = "Validation Location 1", LocationId = "val-loc-1")]
-        //public static async Task<AvailabilityTelemetry> Run(
-        //                    [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
-        //                    //[TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
-        //                    [AvailabilityTestInfo] AvailabilityTestInfo testInfo,
-        //                    ILogger log)
-        //{
-        //    log.LogInformation($"[CatDemo-SimpleBinding] Run(..): C# Timer trigger function executed at: {DateTime.Now}."
-        //                     + $" ActivitySpanId = \"{Activity.Current.SpanId.ToHexString() ?? "null"}\";"
-        //                     + $" TestDisplayName = \"{testInfo.TestDisplayName ?? "null"}\";"
-        //                     + $" LocationDisplayName = \"{testInfo.LocationDisplayName ?? "null"}\";"
-        //                     + $" LocationId = \"{testInfo.LocationId ?? "null"}\".");
-
-        //    string responseContent;
-        //    using (HttpClient http = AvailabilityTest.NewHttpClient())
-        //    {
-        //        using (HttpResponseMessage response = await http.GetAsync("https://availabilitymonitoring-extension-monitoredappsample.azurewebsites.net/Home/MonitoredPage"))
-        //        {
-        //            response.EnsureSuccessStatusCode();
-        //            responseContent = await response.Content.ReadAsStringAsync();
-        //        }
-        //    }
-
-        //    bool hasExpectedContent = responseContent.Contains("<title>Monitored Page</title>", StringComparison.OrdinalIgnoreCase)
-        //                                && responseContent.Contains("(App Version Id: 2)", StringComparison.OrdinalIgnoreCase);
-
-        //    AvailabilityTelemetry result = testInfo.DefaultAvailabilityResult;
-
-        //    result.Properties["UserProperty"] = "User Value";
-        //    result.Success = hasExpectedContent;
-        //    return result;
-        //}
-
-        [FunctionName("CatDemo-SimpleBinding-LoadConfigFromHostSettings")]
+        [FunctionName("CatDemo-SimpleBinding")]
         [return: AvailabilityTestResult]
         public static async Task<AvailabilityTelemetry> Run(
-                            //[TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
-                            [TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
+                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
                             [AvailabilityTestInfo] AvailabilityTestInfo testInfo,
                             ILogger log)
         {
-            log.LogInformation($"[CatDemo-SimpleBinding-LoadConfigFromHostSettings] Run(..): C# Timer trigger function executed at: {DateTime.Now}."
+            log.LogInformation($"[CatDemo-SimpleBinding] Run(..): C# Timer trigger function executed at: {DateTime.Now}."
                              + $" ActivitySpanId = \"{Activity.Current.SpanId.ToHexString() ?? "null"}\";"
                              + $" TestDisplayName = \"{testInfo.TestDisplayName ?? "null"}\";"
                              + $" LocationDisplayName = \"{testInfo.LocationDisplayName ?? "null"}\";"
                              + $" LocationId = \"{testInfo.LocationId ?? "null"}\".");
-
 
             string responseContent;
             using (HttpClient http = AvailabilityTest.NewHttpClient())
@@ -80,6 +44,41 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
             result.Success = hasExpectedContent;
             return result;
         }
+
+        //[FunctionName("CatDemo-ExplicitlySpecifyConfig")]
+        //[return: AvailabilityTestResult(TestDisplayName = "Validation Test 1", LocationDisplayName = "Validation Location 1", LocationId = "val-loc-1")]
+        //public static async Task<AvailabilityTelemetry> Run(
+        //                    [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo timerInfo,
+        //                    [TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
+        //                    [AvailabilityTestInfo] AvailabilityTestInfo testInfo,
+        //                    ILogger log)
+        //{
+        //    log.LogInformation($"[CatDemo-ExplicitlySpecifyConfig] Run(..): C# Timer trigger function executed at: {DateTime.Now}."
+        //                     + $" ActivitySpanId = \"{Activity.Current.SpanId.ToHexString() ?? "null"}\";"
+        //                     + $" TestDisplayName = \"{testInfo.TestDisplayName ?? "null"}\";"
+        //                     + $" LocationDisplayName = \"{testInfo.LocationDisplayName ?? "null"}\";"
+        //                     + $" LocationId = \"{testInfo.LocationId ?? "null"}\".");
+
+
+        //    string responseContent;
+        //    using (HttpClient http = AvailabilityTest.NewHttpClient())
+        //    {
+        //        using (HttpResponseMessage response = await http.GetAsync("https://availabilitymonitoring-extension-monitoredappsample.azurewebsites.net/Home/MonitoredPage"))
+        //        {
+        //            response.EnsureSuccessStatusCode();
+        //            responseContent = await response.Content.ReadAsStringAsync();
+        //        }
+        //    }
+
+        //    bool hasExpectedContent = responseContent.Contains("<title>Monitored Page</title>", StringComparison.OrdinalIgnoreCase)
+        //                                && responseContent.Contains("(App Version Id: 2)", StringComparison.OrdinalIgnoreCase);
+
+        //    AvailabilityTelemetry result = testInfo.DefaultAvailabilityResult;
+
+        //    result.Properties["UserProperty"] = "User Value";
+        //    result.Success = hasExpectedContent;
+        //    return result;
+        //}
 
         //[FunctionName("CatDemo-PlainSimplePrototype-ThrowsException")]
         //[return: AvailabilityTestResult(TestDisplayName = "An AvailabilityTestResult test!")]
