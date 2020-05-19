@@ -5,15 +5,15 @@ VisualStudioVersion = 16.0.29519.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring", "AvailabilityMonitoring-Extension\Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.csproj", "{13CD7C8A-600D-4F5B-84B4-40D2575E21F2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoConsole", "Samples and Validations\AvailabilityMonitoring-Extension-DemoConsole\AvailabilityMonitoring-Extension-DemoConsole.csproj", "{0AA499F5-F903-4FAC-BF3B-EA75D6735167}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoConsole", "Demos\AvailabilityMonitoring-Extension-DemoConsole\AvailabilityMonitoring-Extension-DemoConsole.csproj", "{0AA499F5-F903-4FAC-BF3B-EA75D6735167}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoFunction", "Samples and Validations\AvailabilityMonitoring-Extension-DemoFunction\AvailabilityMonitoring-Extension-DemoFunction.csproj", "{32B33932-2F92-4236-A286-3A085781E11C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-DemoFunction", "Demos\AvailabilityMonitoring-Extension-DemoFunction\AvailabilityMonitoring-Extension-DemoFunction.csproj", "{32B33932-2F92-4236-A286-3A085781E11C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-MonitoredAppSample", "Samples and Validations\AvailabilityMonitoring-Extension-MonitoredAppSample\AvailabilityMonitoring-Extension-MonitoredAppSample.csproj", "{D52BC15A-37C0-45A5-94C5-1AC546785846}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-MonitoredAppSample", "Demos\AvailabilityMonitoring-Extension-MonitoredAppSample\AvailabilityMonitoring-Extension-MonitoredAppSample.csproj", "{D52BC15A-37C0-45A5-94C5-1AC546785846}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlainSimplePrototype", "PlainSimplePrototype\PlainSimplePrototype.csproj", "{9275BF08-E979-44A3-96C1-7202CB1A52D0}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples and Validations", "Samples and Validations", "{D87E0179-8A11-477C-9AA6-6ACD0F155BC5}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demos", "Demos", "{D87E0179-8A11-477C-9AA6-6ACD0F155BC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
