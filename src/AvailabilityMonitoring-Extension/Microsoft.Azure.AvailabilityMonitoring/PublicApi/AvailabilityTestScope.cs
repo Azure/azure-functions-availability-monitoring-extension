@@ -126,7 +126,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _activitySpanId = Format.AvailabilityTest.SpanId(_activitySpan);
 
                 _distributedOperationId = _activitySpan.RootId;
-                //_activitySpan.
 
                 // Start the timer:
                 _startTime = DateTimeOffset.Now;
