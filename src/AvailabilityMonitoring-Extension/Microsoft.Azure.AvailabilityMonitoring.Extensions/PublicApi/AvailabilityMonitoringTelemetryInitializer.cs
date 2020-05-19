@@ -44,6 +44,12 @@ namespace Microsoft.Azure.AvailabilityMonitoring.Extensions
                 }
             }
 
+            // If we wanted to only include DependencyTelemetry, we would do it something like this:
+            // if (false == (telemetryItem is DependencyTelemetry))
+            //{
+            //    return;
+            //}
+
             Activity activity = Activity.Current;
             if (TryPopulateContextFromActivity(telemetryItem, activity))
             {

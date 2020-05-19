@@ -126,16 +126,15 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                 _activitySpanId = Format.AvailabilityTest.SpanId(_activitySpan);
 
                 _distributedOperationId = _activitySpan.RootId;
-                //_activitySpan.
 
                 // Start the timer:
                 _startTime = DateTimeOffset.Now;
 
                 _log?.LogInformation($"{nameof(AvailabilityTestScope)}.{nameof(Start)} finished:"
                                     + " {{TestDisplayName=\"{TestDisplayName}\", LocationDisplayName=\"{LocationDisplayName}\", LocationId=\"{LocationId}\","
-                                    + " SpanId=\"{SpanId}\", StartTime=\"{StartTime}\", OperationName=\"{OperationName}\"}}",
+                                    + " SpanId=\"{SpanId}\", SpanIdFormat=\"{SpanIdFormat}\", StartTime=\"{StartTime}\", OperationName=\"{OperationName}\"}}",
                                         TestDisplayName, LocationDisplayName, LocationId,
-                                        _activitySpanId, _startTime.ToString("o"), _activitySpanOperationName);
+                                        _activitySpanId, _activitySpan.IdFormat, _startTime.ToString("o"), _activitySpanOperationName);
             }
         }
 

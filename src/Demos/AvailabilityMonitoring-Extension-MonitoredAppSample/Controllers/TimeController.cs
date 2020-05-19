@@ -16,12 +16,15 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample.Controllers
     [ApiController]
     public class TimeController : ControllerBase
     {
+        public const string Version = "4";
+
         // GET: api/Time
         [HttpGet]
         public async Task<MonitoredPageViewModel> GetAsync()
         {
             var model = new MonitoredPageViewModel()
             {
+                Version = TimeController.Version,
                 PublicTime = await GetRemoteTimeInfoAsync(),
                 LocalTime = GetLocalTimeInfo(),
                 FunctionTime = await GetFunctionTimeInfoAsync(),
@@ -67,7 +70,7 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample.Controllers
 
             using (var http = new HttpClient())
             {
-                using (HttpResponseMessage response = await http.GetAsync("https://gregp-cat-test11.azurewebsites.net/api/TimeServer"))
+                using (HttpResponseMessage response = await http.GetAsync("https://availabilitymonitoring-extension-monitoredfuncsample.azurewebsites.net/api/TimeServer"))
                 {
                     response.EnsureSuccessStatusCode();
                     responseContent = await response.Content.ReadAsStringAsync();

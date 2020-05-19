@@ -15,7 +15,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         [FunctionName("CatDemo-SimpleBinding")]
         [return: AvailabilityTestResult]
         public static async Task<bool> Run(
-                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo _,
+                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo notUsed,
                             ILogger log)
         {
             log.LogInformation($"[CatDemo-SimpleBinding] Run(..): C# Coded Availability Test Function executed at: {DateTime.Now}."
@@ -41,7 +41,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         [FunctionName("CatDemo-ExplicitlySpecifyConfig")]
         [return: AvailabilityTestResult(TestDisplayName = "Validation Test 1", LocationDisplayName = "Validation Location 1", LocationId = "val-loc-1")]
         public static async Task<AvailabilityTelemetry> Run(
-                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo _,
+                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo notUsed,
                             //[TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
                             [AvailabilityTestInfo] AvailabilityTestInfo testInfo,
                             ILogger log)
@@ -77,7 +77,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         [FunctionName("CatDemo-ThrowsException")]
         [return: AvailabilityTestResult]
         public static bool RunWithException(
-                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo _,
+                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo notUsed,
                             //[TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
                             ILogger log)
         {
@@ -91,7 +91,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         [FunctionName("CatDemo-TimeoutError")]
         [return: AvailabilityTestResult]
         public static async Task<bool> RunWithTimeout(
-                           [TimerTrigger(AvailabilityTestInterval.Minutes05)] TimerInfo _,
+                           [TimerTrigger(AvailabilityTestInterval.Minutes05)] TimerInfo notUsed,
                            ILogger log)
         {
             log.LogInformation($"[CatDemo-PlainSimplePrototype-ShouldTimeout] RunWithTimeout(..): C#  Coded Availability Test Function executed at: {DateTime.Now}."
