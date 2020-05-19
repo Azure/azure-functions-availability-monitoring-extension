@@ -5,6 +5,8 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample.Models
 {
     public class MonitoredPageViewModel
     {
+        public string Version { get; set; }
+
         public class TimeInfo
         {
             public DateTimeOffset UtcTime { get; set; }
@@ -20,7 +22,5 @@ namespace AvailabilityMonitoring_Extension_MonitoredAppSample.Models
         public TimeInfo FunctionTime { get; set; }
 
         public IList<KeyValuePair<string, string>> LocalEnvironment { get; set; }
-
-
     }
 }

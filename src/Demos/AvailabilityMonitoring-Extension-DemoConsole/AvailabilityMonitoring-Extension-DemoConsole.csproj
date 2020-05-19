@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AvailabilityMonitoring-Extension\Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.csproj" />
+    <ProjectReference Include="..\..\AvailabilityMonitoring-Extension\Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring.csproj" />
   </ItemGroup>
 
   <ItemGroup>

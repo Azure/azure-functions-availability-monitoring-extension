@@ -311,7 +311,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             }
         }
     }
-#pragma warning restore CS0618 // Type or member is obsolete
+
 
     public static class RuleExtensions
     {
@@ -334,4 +334,5 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             bindToCollectorMethod.Invoke(rule, new object[] { patternMatcherInstance });
         }
     }
+#pragma warning restore CS0618 // Type or member is obsolete
 }
