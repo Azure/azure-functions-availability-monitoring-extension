@@ -197,7 +197,7 @@
 		<!-- !! The commented section below contains useful code and must be maintained when changes to this file are made !! -->
 		<!-- Comment/uncomment the lines below to control whether you see the detailed results of the output folder(s) redirection. -->
 		
-		<!-- -->
+		<!--
 		<Message Text="[$(SodMgsPrefix)]     AvoidRedirectingBinaryOutput:    &quot;$(AvoidRedirectingBinaryOutput)&quot;." Importance="high" />
 		<Message Text="[$(SodMgsPrefix)]     ForceBinaryOutputIntoEnlistment: &quot;$(ForceBinaryOutputIntoEnlistment)&quot;." Importance="high" />
 		
@@ -221,7 +221,7 @@
 		<Message Text="[$(SodMgsPrefix)]     MSBuildProjectExtensionsPath:    &quot;$(MSBuildProjectExtensionsPath)&quot;." Importance="high" />
 		<Message Text="[$(SodMgsPrefix)]     PackageOutputPath:               &quot;$(PackageOutputPath)&quot;." Importance="high" />
 		<Message Text="[$(SodMgsPrefix)]     PackagesDir:                     &quot;$(PackagesDir)&quot;." Importance="high" />
-		<!-- -->
+		-->
 		
 	</Target>
 
