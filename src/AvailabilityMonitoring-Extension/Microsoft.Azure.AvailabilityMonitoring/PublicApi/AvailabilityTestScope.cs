@@ -90,7 +90,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         public AvailabilityTestScope(string testDisplayName, string locationDisplayName, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
-            Validate.NotNullOrWhitespace(testDisplayName, nameof(locationDisplayName));
+            Validate.NotNullOrWhitespace(locationDisplayName, nameof(locationDisplayName));
             Validate.NotNull(telemetryConfig, nameof(telemetryConfig));
 
             this.TestDisplayName = testDisplayName;
