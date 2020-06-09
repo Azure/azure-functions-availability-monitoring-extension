@@ -16,7 +16,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             public const string LocationDisplayName2 = "Location";
         }
 
-        private class AvailabilityTestConfiguration : IAvailabilityTestConfiguration
+        private class AvailabilityTestConfiguration : IAvailabilityTestInternalConfiguration
         {
             public string TestDisplayName { get; }
             public string LocationDisplayName { get; }
@@ -34,7 +34,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             _nameResolver = nameResolver;
         }
 
-        public IAvailabilityTestConfiguration Resolve(IAvailabilityTestConfiguration testConfig, string functionName)
+        public IAvailabilityTestInternalConfiguration Resolve(IAvailabilityTestConfiguration testConfig, string functionName)
         {
             // Test Display Name:
             string testDisplayName = testConfig?.TestDisplayName;

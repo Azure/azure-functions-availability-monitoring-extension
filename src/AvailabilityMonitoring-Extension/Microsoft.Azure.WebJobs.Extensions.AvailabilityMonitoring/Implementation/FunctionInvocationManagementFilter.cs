@@ -100,7 +100,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                 AvailabilityTestInvocationState invocationState = _availabilityTestRegistry.Invocations.GetOrRegister(functionInstanceId, log);
 
                 // If test configuration makes reference to configuration, resolve the settings
-                IAvailabilityTestConfiguration resolvedTestConfig = _availabilityTestScopeSettingsResolver.Resolve(testConfig, functionName);
+                IAvailabilityTestInternalConfiguration resolvedTestConfig = _availabilityTestScopeSettingsResolver.Resolve(testConfig, functionName);
 
                 // Start the availability test scope (this will start timers and set up the activity span):
                 AvailabilityTestScope testScope = AvailabilityTest.StartNew(resolvedTestConfig, _telemetryConfiguration, flushOnDispose: true, log, logScopeInfo);
