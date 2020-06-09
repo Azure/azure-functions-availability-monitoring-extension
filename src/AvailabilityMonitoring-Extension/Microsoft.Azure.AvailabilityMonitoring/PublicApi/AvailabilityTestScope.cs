@@ -57,6 +57,8 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
         public string TestDisplayName { get; }
 
+        public string LocationDisplayName { get; }
+
         public string ActivitySpanOperationName 
         {
             get 
@@ -85,12 +87,14 @@ namespace Microsoft.Azure.AvailabilityMonitoring
             }
         }
 
-        public AvailabilityTestScope(string testDisplayName, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
+        public AvailabilityTestScope(string testDisplayName, string locationDisplayName, TelemetryConfiguration telemetryConfig, bool flushOnDispose, ILogger log, object logScope)
         {
             Validate.NotNullOrWhitespace(testDisplayName, nameof(testDisplayName));
+            Validate.NotNullOrWhitespace(locationDisplayName, nameof(locationDisplayName));
             Validate.NotNull(telemetryConfig, nameof(telemetryConfig));
 
             this.TestDisplayName = testDisplayName;
+            this.LocationDisplayName = locationDisplayName;
 
             _instrumentationKey = telemetryConfig.InstrumentationKey;
             _telemetryClient = new TelemetryClient(telemetryConfig);
@@ -267,7 +271,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
                 if (String.IsNullOrWhiteSpace(availabilityResult.Name))
                 {
-                    availabilityResult.Name = TestDisplayName;
+                    availabilityResult.Name = this.TestDisplayName;
                 }
                 else if (! availabilityResult.Name.Equals(TestDisplayName, StringComparison.Ordinal))
                 {
@@ -276,6 +280,19 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                  + $" The value specified in the Availability Result takes precedence for tracking."
                                  +  " AvailabilityTestScopeTestDisplayName=\"{AvailabilityTestScope_TestDisplayName}\". AvailabilityResult_Name=\"{AvailabilityResult_Name}\"",
                                     _activitySpanId, TestDisplayName, availabilityResult.Name);
+                }
+
+                if (String.IsNullOrWhiteSpace(availabilityResult.RunLocation))
+                {
+                    availabilityResult.RunLocation = this.LocationDisplayName;
+                }
+                else if (!availabilityResult.RunLocation.Equals(LocationDisplayName, StringComparison.Ordinal))
+                {
+                    _log?.LogDebug($"{nameof(AvailabilityTestScope)}.{nameof(Complete)} (SpanId=\"{{SpanId}}\") detected that the RunLocation of the"
+                                 + $" specified Availability Result is different from the corresponding value of this {nameof(AvailabilityTestScope)}."
+                                 + $" The value specified in the Availability Result takes precedence for tracking."
+                                 + " AvailabilityTestScope_LocationDisplayName=\"{AvailabilityTestScope_LocationDisplayName}\". AvailabilityResult_RunLocation=\"{AvailabilityResult_RunLocation}\"",
+                                    _activitySpanId, LocationDisplayName, availabilityResult.RunLocation);
                 }
 
                 // The user may or may not have set the ID of the availability result telemetry.
