@@ -133,18 +133,11 @@ namespace Microsoft.Azure.AvailabilityMonitoring
 
             public const string TelemetryOperationSyntheticSourceMoniker = nameof(Microsoft) + "." + nameof(Microsoft.Azure) + "." + nameof(Microsoft.Azure.AvailabilityMonitoring) + "." + nameof(AvailabilityTestScope);
 
-            public static string LocationNameAsId(string locationDisplayName)
+            public static string SpanOperationName(string testDisplayName)
             {
-                string locationId = locationDisplayName?.Trim()?.ToLowerInvariant()?.Replace(' ', '-');
-                return locationId;
-            }
-
-            public static string SpanOperationName(string testDisplayName, string locationDisplayName)
-            {
-                return String.Format("{0}={{TestDisplayName=\"{1}\", LocationDisplayName=\"{2}\"}}",
+                return String.Format("{0}={{TestDisplayName=\"{1}\"}}",
                                      SpanOperationNameObjectName,
-                                     SpellIfNull(testDisplayName),
-                                     SpellIfNull(locationDisplayName));
+                                     SpellIfNull(testDisplayName));
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

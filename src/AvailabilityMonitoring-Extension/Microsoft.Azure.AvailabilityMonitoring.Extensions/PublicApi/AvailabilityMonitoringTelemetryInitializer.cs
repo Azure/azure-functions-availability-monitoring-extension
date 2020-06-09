@@ -11,8 +11,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring.Extensions
     {
         public void Initialize(ITelemetry telemetryItem)
         {
-            //TraceForDebug(telemetryItem);
-
             if (telemetryItem == null)
             {
                 return;
@@ -76,54 +74,6 @@ namespace Microsoft.Azure.AvailabilityMonitoring.Extensions
             }
 
             return false;
-        }
-
-        private void TraceForDebug(ITelemetry telemetryItem)
-        {
-            Console.WriteLine();
-
-            const string prefix = "*********** Availability Monitoring Telemetry Processor";
-            Console.WriteLine($"{prefix}: Item type:                {Format.SpellIfNull(telemetryItem?.GetType()?.Name)}");
-
-            if (telemetryItem == null)
-            {
-                return;
-            }
-
-            Console.WriteLine($"{prefix}: Operation.Id:             {Format.SpellIfNull(telemetryItem.Context.Operation.Id)}");
-            Console.WriteLine($"{prefix}: Operation.Name:           {Format.SpellIfNull(telemetryItem.Context.Operation.Name)}");
-            Console.WriteLine($"{prefix}: Operation.ParentId:       {Format.SpellIfNull(telemetryItem.Context.Operation.ParentId)}");
-            Console.WriteLine($"{prefix}: Operation.SyntheticSource:{Format.SpellIfNull(telemetryItem.Context.Operation.SyntheticSource)}");
-
-            if (telemetryItem is TraceTelemetry traceTelemetry)
-            {
-                Console.WriteLine($"{prefix}: Message:                  {Format.SpellIfNull(traceTelemetry.Message)}");
-            }
-
-            if (telemetryItem is RequestTelemetry requestTelemetry)
-            {
-                Console.WriteLine($"{prefix}: Name:                     {Format.SpellIfNull(requestTelemetry.Name)}");
-                Console.WriteLine($"{prefix}: Id:                       {Format.SpellIfNull(requestTelemetry.Id)}");
-            }
-
-            if (telemetryItem is DependencyTelemetry dependencyTelemetry)
-            {
-                if (dependencyTelemetry.Name.Equals("GET /Home/MonitoredPage"))
-                {
-                    Console.WriteLine("User call = true");
-                }
-                Console.WriteLine($"{prefix}: Name:                     {Format.SpellIfNull(dependencyTelemetry.Name)}");
-                Console.WriteLine($"{prefix}: Id:                       {Format.SpellIfNull(dependencyTelemetry.Id)}");
-            }
-
-            if (telemetryItem is AvailabilityTelemetry availabilityTelemetry)
-            {
-                Console.WriteLine($"{prefix}: Name:                     {Format.SpellIfNull(availabilityTelemetry.Name)}");
-                Console.WriteLine($"{prefix}: Id:                       {Format.SpellIfNull(availabilityTelemetry.Id)}");
-            }
-
-            Console.WriteLine();
-            Console.WriteLine();
         }
     }
 }

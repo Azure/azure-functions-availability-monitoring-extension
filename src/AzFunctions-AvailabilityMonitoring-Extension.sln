@@ -15,9 +15,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlainSimplePrototype", "Pla
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demos", "Demos", "{D87E0179-8A11-477C-9AA6-6ACD0F155BC5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvailabilityMonitoring-Extension-MonitoredFuncSample", "Demos\AvailabilityMonitoring-Extension-MonitoredFuncSample\AvailabilityMonitoring-Extension-MonitoredFuncSample.csproj", "{2DCF0A71-BE90-4942-B152-68AD127FE4E5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-MonitoredFuncSample", "Demos\AvailabilityMonitoring-Extension-MonitoredFuncSample\AvailabilityMonitoring-Extension-MonitoredFuncSample.csproj", "{2DCF0A71-BE90-4942-B152-68AD127FE4E5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvailabilityMonitoring-Extension-SimpleScenarioCatFunction", "Demos\AvailabilityMonitoring-Extension-SimpleScenarioCatFunction\AvailabilityMonitoring-Extension-SimpleScenarioCatFunction.csproj", "{4DAE7E06-63DB-42D1-BDC7-04D90BB72961}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvailabilityMonitoring-Extension-SimpleScenarioCatFunction", "Demos\AvailabilityMonitoring-Extension-SimpleScenarioCatFunction\AvailabilityMonitoring-Extension-SimpleScenarioCatFunction.csproj", "{4DAE7E06-63DB-42D1-BDC7-04D90BB72961}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{30D20E09-DFAB-4CB4-8915-1A2D794F3FCE}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

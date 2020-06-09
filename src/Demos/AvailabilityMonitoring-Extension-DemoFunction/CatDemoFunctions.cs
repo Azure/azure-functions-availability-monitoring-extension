@@ -39,7 +39,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
 
 
         [FunctionName("CatDemo-ExplicitlySpecifyConfig")]
-        [return: AvailabilityTestResult(TestDisplayName = "Validation Test 1", LocationDisplayName = "Validation Location 1", LocationId = "val-loc-1")]
+        [return: AvailabilityTestResult(TestDisplayName = "Validation Test 1")]
         public static async Task<AvailabilityTelemetry> Run(
                             [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo notUsed,
                             //[TimerTrigger("*/5 * * * * *")] TimerInfo timerInfo,
@@ -48,9 +48,7 @@ namespace AvailabilityMonitoring_Extension_DemoFunction
         {
             log.LogInformation($"[CatDemo-ExplicitlySpecifyConfig] Run(..): C#  Coded Availability Test Function executed at: {DateTime.Now}."
                              + $" ActivitySpanId = \"{Activity.Current.SpanId.ToHexString() ?? "null"}\";"
-                             + $" TestDisplayName = \"{testInfo.TestDisplayName ?? "null"}\";"
-                             + $" LocationDisplayName = \"{testInfo.LocationDisplayName ?? "null"}\";"
-                             + $" LocationId = \"{testInfo.LocationId ?? "null"}\".");
+                             + $" TestDisplayName = \"{testInfo.TestDisplayName ?? "null"}\".");
 
 
             string responseContent;

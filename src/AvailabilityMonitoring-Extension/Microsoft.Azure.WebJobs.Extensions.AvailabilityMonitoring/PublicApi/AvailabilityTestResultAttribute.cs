@@ -12,11 +12,5 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
 
         [AutoResolve]
         public string TestDisplayName { get; set; }
-
-        [AutoResolve]
-        public string LocationDisplayName { get; set; }
-
-        [AutoResolve]
-        public string LocationId { get; set; }
     }
 }

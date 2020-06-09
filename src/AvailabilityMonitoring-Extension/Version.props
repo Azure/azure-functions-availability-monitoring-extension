@@ -28,7 +28,7 @@
     <VersionDate>2020-04-09</VersionDate>
 
     <!-- VersionPrerelease format examples: alpha.1, alpha.2, beta.1, beta.2; EMPTY for stable releases. -->
-    <VersionPrerelease>alpha.1</VersionPrerelease>
+    <VersionPrerelease>alpha.2</VersionPrerelease>
   </PropertyGroup>
   
   <PropertyGroup>
