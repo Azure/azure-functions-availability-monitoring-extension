@@ -22,14 +22,14 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         private readonly TelemetryConfiguration _telemetryConfiguration;
         private readonly AvailabilityTestScopeSettingsResolver _availabilityTestScopeSettingsResolver;
 
-        public FunctionInvocationManagementFilter(AvailabilityTestRegistry availabilityTestRegistry, TelemetryConfiguration telemetryConfiguration, IConfiguration configuration, INameResolver nameResolver)
+        public FunctionInvocationManagementFilter(AvailabilityTestRegistry availabilityTestRegistry, TelemetryConfiguration telemetryConfiguration, INameResolver nameResolver)
         {
             Validate.NotNull(availabilityTestRegistry, nameof(availabilityTestRegistry));
             Validate.NotNull(telemetryConfiguration, nameof(telemetryConfiguration));
 
             _availabilityTestRegistry = availabilityTestRegistry;
             _telemetryConfiguration = telemetryConfiguration;
-            _availabilityTestScopeSettingsResolver = new AvailabilityTestScopeSettingsResolver(configuration, nameResolver);
+            _availabilityTestScopeSettingsResolver = new AvailabilityTestScopeSettingsResolver(nameResolver);
         }
 
 // Types 'FunctionExecutingContext' and 'IFunctionFilter' (and other Filter-related types) are marked as preview/obsolete,
@@ -38,14 +38,6 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
         public Task OnExecutingAsync(FunctionExecutingContext executingContext, CancellationToken cancelControl)
 #pragma warning restore CS0618
         {
-            // A few lines which we need for attaching a debugger during development.
-            // @ToDo: Remove before shipping.
-            Console.WriteLine($"Filter Entry Point: {nameof(FunctionInvocationManagementFilter)}.{nameof(OnExecutingAsync)}(..).");
-            Console.WriteLine($"FunctionInstanceId: {Format.SpellIfNull(executingContext?.FunctionInstanceId)}.");
-            Process proc = Process.GetCurrentProcess();
-            Console.WriteLine($"Process name: \"{proc.ProcessName}\", Process Id: \"{proc.Id}\".");
-            // --
-
             Validate.NotNull(executingContext, nameof(executingContext));
 
             // Grab the invocation id and the logger:
@@ -89,10 +81,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
             {
                 log?.LogDebug($"Availability Test Pre-Function routine was invoked:"
                              + " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
-                             + " TestConfiguration={{TestDisplayNameTemplate=\"{TestDisplayNameTemplate}\","
-                             + " LocationDisplayNameTemplate=\"{LocationDisplayNameTemplate}\","
-                             + " LocationIdTemplate=\"{LocationIdTemplate}\"}} }}",
-                              functionName, functionInstanceId, testConfig.TestDisplayName, testConfig.LocationDisplayName, testConfig.LocationId);
+                             + " TestConfiguration={{TestDisplayNameTemplate=\"{TestDisplayNameTemplate}\" }} }}",
+                              functionName, functionInstanceId, testConfig.TestDisplayName);
 
                 // - In case (1) described above, we have already registered this invocation:
                 //   The function parameters have been instantiated, and attached to the invocationState.
@@ -284,12 +274,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring
                             + $" {nameof(AvailabilityTestScope)} was completed and disposed."
                             +  " {{FunctionName=\"{FunctionName}\", FunctionInstanceId=\"{FunctionInstanceId}\","
                             +  " ErrorType=\"{ErrorType}\", ErrorMessage=\"{ErrorMessage}\","
-                            +  " TestConfiguration={{TestDisplayName=\"{TestDisplayName}\","
-                            +  " LocationDisplayName=\"{LocationDisplayName}\","
-                            +  " LocationId=\"{LocationId}\"}} }}",
+                            +  " TestConfiguration={{TestDisplayName=\"{TestDisplayName}\" }} }}",
                              functionName, functionInstanceId,
                              error.GetType().Name, Format.LimitLength(error.Message, MaxErrorMessageLength, trim: true),
-                             testScope.TestDisplayName, testScope.LocationDisplayName, testScope.LocationId);
+                             testScope.TestDisplayName);
             }
         }
     }

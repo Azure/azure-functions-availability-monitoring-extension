@@ -135,8 +135,8 @@ namespace AvailabilityMonitoringExtensionDemo
                         ILogger log)
         {
             log.LogInformation($"||||||||||| \"{nameof(AvailabilityMonitoringDemo01)}.{nameof(TakeAvailabilityTestInfo)}\" started.");
-            log.LogInformation("||||||||||| testInfo = {{TestDisplayName = \"{TestDisplayName}\", LocationDisplayName = \"{LocationDisplayName}\", LocationId = \"{LocationId}\", StartTime = \"{StartTime}\"}}",
-                               testInfo.TestDisplayName, testInfo.LocationDisplayName, testInfo.LocationId, testInfo.StartTime);
+            log.LogInformation("||||||||||| testInfo = {{TestDisplayName = \"{TestDisplayName}\", StartTime = \"{StartTime}\"}}",
+                               testInfo.TestDisplayName, testInfo.StartTime);
 
             Task.Delay(TimeSpan.FromMilliseconds(300)).GetAwaiter().GetResult();
             return true;

@@ -49,34 +49,19 @@ namespace Microsoft.Azure.AvailabilityMonitoring
                                                        object logScope)
         {
             Validate.NotNull(testConfig, nameof(testConfig));
-            return StartNew(testConfig.TestDisplayName, testConfig.LocationDisplayName, testConfig.LocationId, telemetryConfig, flushOnDispose, log, logScope);
+            return StartNew(testConfig.TestDisplayName, telemetryConfig, flushOnDispose, log, logScope);
         }
 
         public static AvailabilityTestScope StartNew(string testDisplayName,
-                                                     string locationDisplayName,
                                                      TelemetryConfiguration telemetryConfig,
                                                      bool flushOnDispose,
                                                      ILogger log)
 
         {
-            string locationId = Format.AvailabilityTest.LocationNameAsId(locationDisplayName);
-            return StartNew(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope: null);
+            return StartNew(testDisplayName, telemetryConfig, flushOnDispose, log, logScope: null);
         }
 
         public static AvailabilityTestScope StartNew(string testDisplayName,
-                                                     string locationDisplayName,
-                                                     string locationId,
-                                                     TelemetryConfiguration telemetryConfig,
-                                                     bool flushOnDispose,
-                                                     ILogger log)
-
-        {
-            return StartNew(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope: null);
-        }
-
-        public static AvailabilityTestScope StartNew(string testDisplayName, 
-                                                     string locationDisplayName, 
-                                                     string locationId, 
                                                      TelemetryConfiguration telemetryConfig, 
                                                      bool flushOnDispose, 
                                                      ILogger log, 
@@ -85,7 +70,7 @@ namespace Microsoft.Azure.AvailabilityMonitoring
         {
             log = AvailabilityTest.Log.CreateFallbackLogIfRequired(log);
 
-            var testScope = new AvailabilityTestScope(testDisplayName, locationDisplayName, locationId, telemetryConfig, flushOnDispose, log, logScope);
+            var testScope = new AvailabilityTestScope(testDisplayName, telemetryConfig, flushOnDispose, log, logScope);
             testScope.Start();
 
             return testScope;
