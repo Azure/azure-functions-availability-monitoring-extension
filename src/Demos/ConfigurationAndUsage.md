@@ -1,9 +1,14 @@
-
 # Setting up Azure Function
+
+1. [C#](#Setting%20up%20Azure%20Function%20in%20C#)
+2. [JavaScript](#Setting%20up%20Azure%20Function%20in%20JavaScript)
+
+
+# Setting up Azure Function in C#
 
 1) Create Azure Function template in VS (VS 2017 or VS 2019) and choose TimerTrigger as an initial template configuration
 
-2) Install 1.0.0-alpha.1 version of Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring nuget to your project
+2) Install 1.0.0-alpha.3 version of Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring nuget to your project
     - Add Application Insights CAT feed from myget as a nuget source:
     https://www.myget.org/F/applicationinsights-cat/api/v3/index.json 
     - Check 'Include prerelease' option
@@ -17,7 +22,9 @@ https://github.com/Azure/azure-functions-availability-monitoring-extension/blob/
  Note: your Function app should have Linux selected as Operating System in order to have correct End-to-end tracing correlation, if you'd like to have just AvailabilityTelemetry and set up alerting on it Windows image also would work.
 
 
-# Coded Availability Tests API
+<br>
+
+### Coded Availability Tests API
 
 The API below is only for private preview and is subject to change in the future versions.
 
@@ -49,3 +56,149 @@ result.Properties["ResponseCode"] = <desired response code>;
 result.Success = hasExpectedContent;
 return result;
  ```
+
+
+<br><br>
+
+# Setting up Azure Function in JavaScript
+
+You can reference already created samples or create your new one from the scratch. Also you can skip 1st step below if you already have Timer Trigger function written in JavaScript that you want to onboard to coded availability tests.
+
+### Samples
+
+1) [https usage + sync function with output bindings](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/JavaScript-OutputBindings)
+2) [axios usage + async function with return statement](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/JavaScript-ReturnSample)
+
+**NOTE**: Usage is not limited to https and axios, they're used here just for illustration.
+
+### Create your own Function
+
+1) Create Azure function in JavaScript languge with Timer Trigger template in VSCode or any other preferrable way
+
+Full documentation can be found [here](https://docs.microsoft.com/azure/azure-functions/functions-create-first-azure-function-azure-cli?tabs=bash%2Cbrowser&pivots=programming-language-javascript).
+
+``` powershell
+func init --javascript
+func new --name JSSample --template "Timer trigger"
+```
+
+
+2) Remove extensionBundle section from host.json 
+
+**NOTE**: This step is required, otherwise availability telemetry will not be generated at all
+This section should be removed:
+
+``` json
+ "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[1.*, 2.0.0)"
+  }
+```
+
+Resulted file should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/host.json)
+
+3) Install 1.0.0-alpha.3 version of Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring nuget to your project - add custom nuget source pointing to myget and install actual nuget:
+
+``` powershell
+dotnet nuget add source https://www.myget.org/F/applicationinsights-cat/api/v3/index.json -n myget-appinsights
+func extensions install -p Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring -v 1.0.0-alpha.3
+```
+
+5) Define output binding in function.json of availabilityTestResult type
+
+``` json
+{
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 */1 * * * *",
+      "runOnStartup": true
+    },
+    {
+      "type": "availabilityTestResult",
+      "direction": "out",
+      "name": "availabilityTelemetry"
+    }
+  ]
+}
+```
+
+Alternatively you can use return statement:
+
+``` json
+{
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 */1 * * * *",
+      "runOnStartup": true
+    },
+    {
+      "type": "availabilityTestResult",
+      "direction": "out",
+      "name": "$return"
+    }
+  ]
+}
+```
+
+
+Optionally you can specify test name in the output section, otherwise function name will be used:
+
+``` json
+{
+   ...
+    "direction": "out",
+    "testDisplayName": "My Availability Test"
+}
+```
+
+
+5) Initialize correct bindings before completing the function execution:
+
+``` javascript
+context.bindings.availabilityTelemetry = {
+            success: success,
+            message: message
+        };
+context.done();
+```
+
+In case of async function and return statement it'll look like this:
+
+``` javascript
+return {
+            success: success,
+            message: message
+        };
+```
+
+6) Publish you function using Azure Function Core Tools:
+
+**NOTE**: Do not use extension for VS Code for publishing as it messes up with host.json and brings back removed section.
+
+``` powershell
+func azure functionapp publish <azureFunctionName>
+```
+
+<br>
+
+Optinally you can also enable AppInsights SDK for Node.JS in order to collect generated outgoing dependency calls from your Function.
+Full documentation for Node.JS SDK can be found [here](https://github.com/microsoft/ApplicationInsights-node.js/blob/develop/README.md).
+
+1) Enable Application Insights SDK for Node.JS:
+
+``` powershell
+npm install applicationinsights --save
+```
+
+2) Setup SDK in the Function code:
+
+``` javascript
+const appInsights = require('applicationinsights');
+appInsights.setup().start();
+```

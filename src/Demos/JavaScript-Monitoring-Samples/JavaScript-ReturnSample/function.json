@@ -1,0 +1,17 @@
+{
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 */5 * * * *",
+      "runOnStartup": true
+    },
+    {
+      "name": "$return",
+      "type": "availabilityTestResult",
+      "direction": "out",
+      "testDisplayName": "My Availability Test"
+    }
+  ]
+}
