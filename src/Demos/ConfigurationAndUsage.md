@@ -1,10 +1,11 @@
 # Setting up Azure Function
 
-1. [C#](#Setting%20up%20Azure%20Function%20in%20C#)
-2. [JavaScript](#Setting%20up%20Azure%20Function%20in%20JavaScript)
+1. [C#](#Azure%20Function%20in%20C#)
+2. [JavaScript](#Azure%20Function%20in%20JavaScript)
+3. [Browser testing](#Azure%20Function%20for%20browser%20testing)
 
 
-# Setting up Azure Function in C#
+# Azure Function in C#
 
 1) Create Azure Function template in VS (VS 2017 or VS 2019) and choose TimerTrigger as an initial template configuration
 
@@ -60,7 +61,7 @@ return result;
 
 <br><br>
 
-# Setting up Azure Function in JavaScript
+# Azure Function in JavaScript
 
 You can reference already created samples or create your new one from the scratch. Also you can skip 1st step below if you already have Timer Trigger function written in JavaScript that you want to onboard to coded availability tests.
 
@@ -202,3 +203,21 @@ npm install applicationinsights --save
 const appInsights = require('applicationinsights');
 appInsights.setup().start();
 ```
+
+<br>
+
+# Azure Function for browser testing
+
+You can also repeat the steps from the sections above for any other technologies like browser testing - for instance for Playwright or Selenium.
+
+**NOTE**: Headless browsers are not supported yet in Azure Function consumption plan and you'll need to build custom Docker image that includes chromium or other browser of your choice.
+
+1. Playwright
+
+- Some generic samples like authentication can be found [here](https://github.com/microsoft/playwright/blob/master/docs/examples/README.md).
+- Custom Docker image documentation with already included browsers can be found [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
+- Sample project that illustrates how to integrate playwright with Azure Function can be found [here](https://github.com/arjun27/playwright-azure-functions).
+
+2. Selenium
+
+- JavaScript documentation can be found [here](https://www.selenium.dev/selenium/docs/api/javascript/).
