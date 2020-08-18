@@ -210,13 +210,18 @@ appInsights.setup().start();
 
 You can also repeat the steps from the sections above for any other technologies like browser testing - for instance for Playwright or Selenium.
 
-**NOTE**: Headless browsers are not supported yet in Azure Function consumption plan and you'll need to build custom Docker image that includes chromium or other browser of your choice.
+**NOTE**: Headless browser support for Chromium was recently added to the Azure Function consumption plan in Linux (not supported in Windows consumption plan) and you can either use it with some customizations (see docs below) or build custom Docker image that includes chromium or other browser of your choice and deploy it to the Premium plan.
 
 1. Playwright
 
 - Some generic samples like authentication can be found [here](https://github.com/microsoft/playwright/blob/master/docs/examples/README.md).
-- Custom Docker image documentation with already included browsers can be found [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
 - Sample project that illustrates how to integrate playwright with Azure Function can be found [here](https://github.com/arjun27/playwright-azure-functions).
+
+Consumption plan:
+- Use this [documentation](https://dev.to/azure/running-headless-chromium-in-azure-functions-with-puppeteer-and-playwright-2fgk) and a [sample](https://github.com/anthonychu/functions-headless-chromium) to deploy Playwright to the Linux consumption plan.
+
+Docker image:
+- Custom Docker image documentation with already included browsers can be found [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
 
 2. Selenium
 
