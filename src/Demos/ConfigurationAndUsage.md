@@ -223,6 +223,9 @@ Consumption plan:
 Docker image:
 - Custom Docker image documentation with already included browsers can be found [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
 
+
+The Playwright team has just released a Record & Replay [CLI tool](https://github.com/microsoft/playwright-cli) that can be used to generate Playwright test scripts in JavaScript. This is also a great way to learn the Playwright API. Run **npx playwright-cli codegen** in your terminal and try it out now!
+
 2. Selenium
 
 - JavaScript documentation can be found [here](https://www.selenium.dev/selenium/docs/api/javascript/).
