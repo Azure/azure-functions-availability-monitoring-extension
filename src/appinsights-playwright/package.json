@@ -1,0 +1,27 @@
+{
+    "name": "appinsights-playwright",
+    "version": "0.1.4",
+    "description": "AppInsights Playwright",
+    "repository": "github:Azure/azure-functions-availability-monitoring-extension",
+    "homepage": "",
+    "main": "./index.js",
+    "scripts": {
+        "build": "tsc"
+    },
+    "author": "Microsoft Application Insights Team",
+    "license": "MIT",
+    "dependencies": {
+        "playwright-chromium": "1.4.0-next.1602020572233"
+    },
+    "devDependencies": {
+        "typescript": "^4.0.2",
+        "webpack": "^4.44.1",
+        "webpack-cli": "^3.3.12",
+        "tslint": "^5.19.0",
+        "tslint-config-prettier": "^1.18.0"
+    },
+    "files": [
+        "index.js",
+        "src/**/*.js"
+    ]
+}

@@ -1,0 +1,1 @@
+export { AppInsightsContextListener } from './src/instrumentation';
