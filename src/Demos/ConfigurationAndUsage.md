@@ -67,7 +67,7 @@ Use this sample as a prototype and replace you custom Playwright execution in th
 Details:
 - Initialize AppInsightsContextListener at the beggining of your function code
 - Wrap actual test execution in the try/finally to have data still being collected and sent in the case of failure
-- Serialize collected data in the response at in the **finally** step
+- Serialize collected data in the response at the **finally** step
 
 Resulting code should look like:
 
