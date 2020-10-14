@@ -39,9 +39,12 @@ module.exports = async function (context, req) {
         // Close page
         await page.close();
 
-        // Close browser
+        // ---------------------
+        await browserContext.close();
         await browser.close();
 
+    } catch (err) {
+        context.log.error(err);
     } finally {
         // Serialize collected data into the response
         context.res = listener.serializeData();
