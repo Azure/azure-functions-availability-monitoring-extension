@@ -19,12 +19,18 @@ module.exports = async function (context, req) {
         const page = await browserContext.newPage();
         page.setDefaultTimeout(5000);
 
-        // Go to https://www.bing.com/?toHttps=1&redig=6AF43A87E4114AFA9B74F780918EB668
-        await page.goto('https://www.bing.com/?toHttps=1&redig=6AF43A87E4114AFA9B74F780918EB668');
+        // Go to https://www.bing.com/?toHttps=1&redig=69CC3FCA85A84B3AAFA1D638964EA2B1
+        await page.goto('https://www.bing.com/?toHttps=1&redig=69CC3FCA85A84B3AAFA1D638964EA2B1');
+
+        // Click input[aria-label="Enter your search term"]
+        await page.click('input[aria-label="Enter your search term"]');
+
+        // Fill input[aria-label="Enter your search term"]
+        await page.fill('input[aria-label="Enter your search term"]', 'Playwright');
 
         // Click //label[normalize-space(@aria-label)='Search the web']/*[local-name()="svg"]
         await page.click('//label[normalize-space(@aria-label)=\'Search the web\']/*[local-name()="svg"]');
-        // assert.equal(page.url(), 'https://www.bing.com/search?q=Playwright+docs&form=QBLH&sp=-1&pq=playwright+docs&sc=6-15&qs=n&sk=&cvid=8ED88C73553942CAB8C76EE34BEC2C3B');
+        // assert.equal(page.url(), 'https://www.bing.com/search?q=Playwright&form=QBLH&sp=-1&pq=playwright&sc=8-10&qs=n&sk=&cvid=A5708CE6F75940C79891958DC561761B');
 
         // Click text="Playwright"
         await page.click('text="Playwright"');
@@ -40,5 +46,5 @@ module.exports = async function (context, req) {
         // Serialize collected data into the response
         context.res = listener.serializeData();
         context.done();
-    }    
+    }
 };

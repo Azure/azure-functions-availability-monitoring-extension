@@ -2,7 +2,6 @@
     "IsEncrypted": false,
     "Values": {
       "FUNCTIONS_WORKER_RUNTIME": "node",
-      "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-      "APPINSIGHTS_INSTRUMENTATIONKEY": "f6132577-affe-41cb-8de6-9177097cc457"
+      "AzureWebJobsStorage": "UseDevelopmentStorage=true"
     }
   }

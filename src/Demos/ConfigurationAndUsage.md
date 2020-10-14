@@ -67,7 +67,7 @@ Use this sample as a prototype and replace you custom Playwright execution in th
 Details:
 - Initialize AppInsightsContextListener at the beggining of your function code
 - Wrap actual test execution in the try/finally to have data still being collected and sent in the case of failure
-- serialize the collected data at in the finally step
+- Serialize collected data in the response at in the **finally** step
 
 Resulting code should look like:
 
@@ -93,6 +93,23 @@ module.exports = async function (context, req) {
 };
 ```
 
+**NOTE**
+If you're using Record & Replay tool for code generation rename **context** field to something else as it will conflict with context defined in HttpTrigger template and will cause compilcation issues:
+
+Before: 
+``` javascript
+const context = await browser.newContext();
+const page = await context.newPage();
+```
+
+After:
+``` javascript
+const browserContext = await browser.newContext();
+const page = await browserContext.newPage();
+```
+
+<br/>
+
 ### Configuring Chromium download location
 
 By default, Playwright downloads Chromium to a location outside the function app's folder. In order to include Chromium in the build artifacts, we need to instruct Playwright to install Chromium in the app's node_modules folder. To do this, create an app setting named **PLAYWRIGHT_BROWSERS_PATH** with a value of **0** in the function app in Azure. This setting is also used by Playwright at run-time to locate Chromium in node_modules.
@@ -110,10 +127,12 @@ func azure functionapp publish <YourAzureFunctionName> --build remote
 Follow instructions above in the API testing section how to create the availability URL ping test.
 
 After setup is done, wait till results appear in the Availability blade:
+
 ![](./AvailabilityResults.png)
 
 
-And click on Load test steps button to see the actual results of Playwright test execution:
+And click on Load test steps button to see more details of Playwright test execution:
+
 ![](./E2EDetails.png)
 
 ### Additional useful information
