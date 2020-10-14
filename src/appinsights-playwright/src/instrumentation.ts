@@ -40,7 +40,10 @@ export class AppInsightsContextListener {
         };
         return {        
             body: JSON.stringify(data),
-            status: this._actionListener._failed ? '500' : '200'
+            status: this._actionListener._failed ? '500' : '200',
+            headers: {
+                "content-type": "application/json"
+            }
         };
     }
 }
@@ -53,9 +56,13 @@ export class AppInsightsActionListener {
         this._state = state;
         this._failed = false;
     }
+    dispose() {
+        this._data = [];
+    }
     async onAfterAction(result: any, metadata: any): Promise<void> {
         try {
             const pageUrl = metadata.page.mainFrame().url();           
+            const duration = result.endTime - result.startTime;
 
             this._failed = this._failed || !!result.error;
 
@@ -67,8 +74,8 @@ export class AppInsightsActionListener {
                 resultCode: !!result.error ? '500' : '200',
                 success: !result.error,
                 url: pageUrl,
-                duration: result.endTime - result.startTime,
-                timestamp: result.startTime
+                duration: duration,
+                timestamp: Date.now()
             }
 
             switch (this._state) {

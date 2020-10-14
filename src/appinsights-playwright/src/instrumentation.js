@@ -69,7 +69,10 @@ var AppInsightsContextListener = /** @class */ (function () {
         };
         return {
             body: JSON.stringify(data),
-            status: this._actionListener._failed ? '500' : '200'
+            status: this._actionListener._failed ? '500' : '200',
+            headers: {
+                "content-type": "application/json"
+            }
         };
     };
     return AppInsightsContextListener;
@@ -81,14 +84,18 @@ var AppInsightsActionListener = /** @class */ (function () {
         this._state = state;
         this._failed = false;
     }
+    AppInsightsActionListener.prototype.dispose = function () {
+        this._data = [];
+    };
     AppInsightsActionListener.prototype.onAfterAction = function (result, metadata) {
         return __awaiter(this, void 0, void 0, function () {
-            var pageUrl, step, _a, buffer, buffer, e_1;
+            var pageUrl, duration, step, _a, buffer, buffer, e_1;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         _b.trys.push([0, 8, , 9]);
                         pageUrl = metadata.page.mainFrame().url();
+                        duration = result.endTime - result.startTime;
                         this._failed = this._failed || !!result.error;
                         step = {
                             action: metadata.type,
@@ -97,8 +104,8 @@ var AppInsightsActionListener = /** @class */ (function () {
                             resultCode: !!result.error ? '500' : '200',
                             success: !result.error,
                             url: pageUrl,
-                            duration: result.endTime - result.startTime,
-                            timestamp: result.startTime
+                            duration: duration,
+                            timestamp: Date.now()
                         };
                         _a = this._state;
                         switch (_a) {

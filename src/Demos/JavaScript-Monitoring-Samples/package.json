@@ -1,13 +1,14 @@
 {
-  "name": "",
-  "version": "",
+  "name": "functions-playwright",
+  "version": "1.0.0",
   "description": "",
   "scripts": {
+    "start": "func start",
     "test": "echo \"No tests yet...\""
   },
-  "author": "",
   "dependencies": {
-    "applicationinsights": "^1.8.2",
-    "axios": "^0.19.2"
-  }
+    "appinsights-playwright": "^1.0.0",
+    "playwright-chromium": "^1.5.0"
+  },
+  "devDependencies": {}
 }
