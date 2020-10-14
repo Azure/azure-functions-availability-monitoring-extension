@@ -99,7 +99,7 @@ By default, Playwright downloads Chromium to a location outside the function app
 
 ### Publish code 
 
-Use Azure Functions Core Tools and run the command with the --build remote flag:
+Use Azure Functions Core Tools and run the command with the **--build remote** flag:
 
 ``` powershell
 func azure functionapp publish <YourAzureFunctionName> --build remote
