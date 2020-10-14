@@ -44,7 +44,7 @@ Headless browser support for Chromium was recently added to the Azure Function c
 ## 1. Playwright
 
 ### Pre-configuration
-Create Azure Function template in VSCode for JavaScript and choose HttpTrigger as an initial template configuration and install Playwrite npm module. Ensure that you are using the latest 1.5.0 version, otherwise upgrade it to the latest.
+Create Azure Function template in VSCode for JavaScript and choose HttpTrigger as an initial template configuration and install Playwright npm module. Ensure that you are using the latest 1.5.0 version, otherwise upgrade it to the latest.
 
 ``` powershell
 npm install playwright-chromium
@@ -58,7 +58,7 @@ npm install appinsights-playwright --registry=https://www.myget.org/F/applicatio
 
 ### Generate the Playwright code
 
-The easiest to way to generate the actual test script is to use Record & Replay [CLI tool](https://github.com/microsoft/playwright-cli). This is also a great way to learn the Playwright API. Run **npx playwright-cli codegen** in your terminal and try it out now!
+The easiest way to generate the actual test script is to use Record & Replay [CLI tool](https://github.com/microsoft/playwright-cli). This is also a great way to learn the Playwright API. Run **npx playwright-cli codegen** in your terminal and try it out now!
 
 ### Enable Application Insights collection
 
