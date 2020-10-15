@@ -1,190 +1,22 @@
 # Setting up Azure Function
 
-1. [C#](#Azure%20Function%20in%20C#)
-2. [JavaScript](#Azure%20Function%20in%20JavaScript)
-3. [Browser testing](#Azure%20Function%20for%20browser%20testing)
+1. [API testing](#API%20testing%20in%20Azure%20Function)
+3. [Browser testing](#Browser%20testing%20in%20Azure%20Function)
 
 
-# Azure Function in C#
+# API testing in Azure Function
 
-1) Create Azure Function template in VS (VS 2017 or VS 2019) and choose TimerTrigger as an initial template configuration
+1) Create Azure Function template in VS (VS 2017 or VS 2019) for C# or VSCode for JavaScript and choose HttpTrigger as an initial template configuration
+2) Write custom code to ping your application 
+3) Deploy your code to Azure Function app and connect Function app to Application Insights 
+4) Get and copy your Azure Function URL by navigation to Function App -> Functions -> your function Overview blade
 
-2) Install 1.0.0-alpha.3 version of Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring nuget to your project
-    - Add Application Insights CAT feed from myget as a nuget source:
-    https://www.myget.org/F/applicationinsights-cat/api/v3/index.json 
-    - Check 'Include prerelease' option
- 
+  ![](./GetFunctionUrl.png)
 
-3) Use custom function code from the samples that can be found here:
-https://github.com/Azure/azure-functions-availability-monitoring-extension/blob/master/src/Demos/AvailabilityMonitoring-Extension-DemoFunction/CatDemoFunctions.cs
+5) Navigate to Availability blade in the Azure Portal and create new web test, choose regular URL ping test and paste saved Azure Function URL
 
-4) Deploy your code to Azure Function app and connect Function app to Application Insights 
+  ![](./CreateTest.png)
 
- Note: your Function app should have Linux selected as Operating System in order to have correct End-to-end tracing correlation, if you'd like to have just AvailabilityTelemetry and set up alerting on it Windows image also would work.
-
-
-<br>
-
-### Coded Availability Tests API
-
-The API below is only for private preview and is subject to change in the future versions.
-
- 
-1) Availability test frequency can be specified by setting `[TimerTrigger(AvailabilityTestInterval.Minute01)]` attribute for your timer trigger. It can be set to 1, 5, 10 and 15 minutes
-
-``` csharp
-public static async Task<bool> Run(
-                            [TimerTrigger(AvailabilityTestInterval.Minute01)] TimerInfo notUsed,
-                            ILogger log)
-```
-
-Default timer interval in a form of CRON expression also can be set `[TimerTrigger("*/1 * * * * *")] TimerInfo timerInfo` and the difference is that `AvailabilityTestInterval` guarantees distribution of availability tests execution across multiple locations and by using the default one all tests in all locations will be executed at the same time.
-
-`AvailabilityTestInterval` is recommended way of configuring tests deployed to multiple locations.
-
-2) Default availability test name is equal to the function name but also can be customized by setting TestDisplayName on AvailabilityTestResult
-
-``` csharp
-[return: AvailabilityTestResult(TestDisplayName = "MyAvailabilityTestName")]
-
-```
- 
-3) Function can return either boolean that will be converted to availability result success field or full AvailabilityTelemetry object with all needed modifications including enriched custom properties collection:
-
- ``` csharp
-AvailabilityTelemetry result = testInfo.DefaultAvailabilityResult;
-result.Properties["ResponseCode"] = <desired response code>;
-result.Success = hasExpectedContent;
-return result;
- ```
-
-
-<br><br>
-
-# Azure Function in JavaScript
-
-You can reference already created samples or create your new one from the scratch. Also you can skip 1st step below if you already have Timer Trigger function written in JavaScript that you want to onboard to coded availability tests.
-
-### Samples
-
-1) [https usage + sync function with output bindings](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/JavaScript-OutputBindings)
-2) [axios usage + async function with return statement](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/JavaScript-ReturnSample)
-
-**NOTE**: Usage is not limited to https and axios, they're used here just for illustration.
-
-### Create your own Function
-
-1) Create Azure function in JavaScript languge with Timer Trigger template in VSCode or any other preferrable way
-
-Full documentation can be found [here](https://docs.microsoft.com/azure/azure-functions/functions-create-first-azure-function-azure-cli?tabs=bash%2Cbrowser&pivots=programming-language-javascript).
-
-``` powershell
-func init --javascript
-func new --name JSSample --template "Timer trigger"
-```
-
-
-2) Remove extensionBundle section from host.json 
-
-**NOTE**: This step is required, otherwise availability telemetry will not be generated at all
-This section should be removed:
-
-``` json
- "extensionBundle": {
-    "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[1.*, 2.0.0)"
-  }
-```
-
-Resulted file should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/host.json)
-
-3) Install 1.0.0-alpha.3 version of Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring nuget to your project - add custom nuget source pointing to myget and install actual nuget:
-
-``` powershell
-dotnet nuget add source https://www.myget.org/F/applicationinsights-cat/api/v3/index.json -n myget-appinsights
-func extensions install -p Microsoft.Azure.WebJobs.Extensions.AvailabilityMonitoring -v 1.0.0-alpha.3
-```
-
-5) Define output binding in function.json of availabilityTestResult type
-
-``` json
-{
-  "bindings": [
-    {
-      "name": "myTimer",
-      "type": "timerTrigger",
-      "direction": "in",
-      "schedule": "0 */1 * * * *",
-      "runOnStartup": true
-    },
-    {
-      "type": "availabilityTestResult",
-      "direction": "out",
-      "name": "availabilityTelemetry"
-    }
-  ]
-}
-```
-
-Alternatively you can use return statement:
-
-``` json
-{
-  "bindings": [
-    {
-      "name": "myTimer",
-      "type": "timerTrigger",
-      "direction": "in",
-      "schedule": "0 */1 * * * *",
-      "runOnStartup": true
-    },
-    {
-      "type": "availabilityTestResult",
-      "direction": "out",
-      "name": "$return"
-    }
-  ]
-}
-```
-
-
-Optionally you can specify test name in the output section, otherwise function name will be used:
-
-``` json
-{
-   ...
-    "direction": "out",
-    "testDisplayName": "My Availability Test"
-}
-```
-
-
-5) Initialize correct bindings before completing the function execution:
-
-``` javascript
-context.bindings.availabilityTelemetry = {
-            success: success,
-            message: message
-        };
-context.done();
-```
-
-In case of async function and return statement it'll look like this:
-
-``` javascript
-return {
-            success: success,
-            message: message
-        };
-```
-
-6) Publish you function using Azure Function Core Tools:
-
-**NOTE**: Do not use extension for VS Code for publishing as it messes up with host.json and brings back removed section.
-
-``` powershell
-func azure functionapp publish <azureFunctionName>
-```
 
 <br>
 
@@ -206,26 +38,267 @@ appInsights.setup().start();
 
 <br>
 
-# Azure Function for browser testing
+# Browser testing in Azure Function
 
-You can also repeat the steps from the sections above for any other technologies like browser testing - for instance for Playwright or Selenium.
+Headless browser support for Chromium was recently added to the Azure Function consumption plan in Linux (not supported in Windows consumption plan) and you can either use it with some customizations (see references below) or build custom Docker image that includes chromium or other browser of your choice and deploy it to the Premium plan.
 
-**NOTE**: Headless browser support for Chromium was recently added to the Azure Function consumption plan in Linux (not supported in Windows consumption plan) and you can either use it with some customizations (see docs below) or build custom Docker image that includes chromium or other browser of your choice and deploy it to the Premium plan.
+## 1. Playwright
 
-1. Playwright
+### Prerequisites
+Ensure that you have correct tooling for Azure Functions v3:
 
-- Some generic samples like authentication can be found [here](https://github.com/microsoft/playwright/blob/master/docs/examples/README.md).
-- Sample project that illustrates how to integrate playwright with Azure Function can be found [here](https://github.com/arjun27/playwright-azure-functions).
+1. Install NodeJs
 
-Consumption plan:
-- Use this [documentation](https://dev.to/azure/running-headless-chromium-in-azure-functions-with-puppeteer-and-playwright-2fgk) and a [sample](https://github.com/anthonychu/functions-headless-chromium) to deploy Playwright to the Linux consumption plan.
+You must use NodeJs versions 10.x.x or 12.x.x. Use official [NodeJS website](https://nodejs.org/en/download/) to download and install the latest 12.x.x version. To check the installed version run the following command:
+``` powershell
+node -v
+```
 
-Docker image:
-- Custom Docker image documentation with already included browsers can be found [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
+2. Install Azure Core Tools
+
+The installation in Windows is through NodeJs, running the following command line in PowerShell or cmd:
+``` powershell
+npm install -g azure-functions-core-tools@3
+```
+To check the installed version run the following command:
+``` powershell
+func --version
+```
+
+### Pre-configuration
+1. Create Azure Function template in VSCode for JavaScript and choose HttpTrigger as an initial template configuration. Ensure that Function v3 was created by checking .vscode/settings.json file - it should have projectRuntime set to 3:
+
+``` json
+"azureFunctions.projectRuntime": "~3",
+```
+
+2. Install Playwright npm module. Ensure that you are using the latest 1.5.* version, otherwise upgrade it to the latest.
+
+``` powershell
+npm install playwright-chromium
+``` 
+
+3. To have full integration with Playwright and have an ability to view all the actions taken during the testing, including failures and screenshots collected for each step you also need to install experimental appinsights-playwright npm package from myget.
+
+``` powershell
+npm install appinsights-playwright --registry=https://www.myget.org/F/applicationinsights-cat/npm/
+``` 
+
+### Generate the Playwright code
+
+The easiest way to generate the actual test script is to use Record & Replay [CLI tool](https://github.com/microsoft/playwright-cli). This is also a great way to learn the Playwright API. Run **npx playwright-cli codegen** in your terminal and try it out now!
+
+### Enable Application Insights collection
+
+Use this sample as a prototype and replace you custom Playwright execution in this [function template](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples). 
+
+Details:
+- Initialize AppInsightsContextListener at the beggining of your function code
+- Wrap actual test execution in the try/catch/finally to have data still being collected and sent in the case of failure
+- Serialize collected data in the response at the **finally** section
+
+Resulting code should look like:
+
+``` javascript
+const { chromium } = require('playwright-chromium');
+const { AppInsightsContextListener } = require('appinsights-playwright')
+
+module.exports = async function (context, req) {    
+    // initialize AppInsightsListener to collect information about Playwright execution
+    // set input parameter to:
+    //   - 'AutoCollect' to collect screenshots after every action taken
+    //   - 'OnFailure' to collect screenshots only for the failed actions
+    //   - 'No' to skip the screenshots collection. Default value.
+    const listener = new AppInsightsContextListener('AutoCollect');
+
+    try {
+        // your custom Playwright code
+    } catch (err) {
+        context.log.error(err);
+    } finally {
+        // Serialize collected data into the response
+        context.res = listener.serializeData();
+        context.done();
+    }    
+};
+```
+
+**NOTE**
+If you're using Record & Replay tool for code generation do the following modifications:
+1) Rename **context** field to something else as it will conflict with context defined in HttpTrigger template and will cause compilcation issues. The following lines should be updated:
+``` javascript
+const context = await browser.newContext();
+const page = await context.newPage();
+// playwright actions...
+await context.close();
+```
+2) Set **headless** parameter in **chromium.launch()** function to **true** (or remove it as **true** is default value)
 
 
-The Playwright team has just released a Record & Replay [CLI tool](https://github.com/microsoft/playwright-cli) that can be used to generate Playwright test scripts in JavaScript. This is also a great way to learn the Playwright API. Run **npx playwright-cli codegen** in your terminal and try it out now!
+Here is the full sample before and after the code changes:
 
-2. Selenium
+1. Before:
+``` javascript
+const { chromium } = require('playwright-chromium');
+const { AppInsightsContextListener } = require('appinsights-playwright')
 
-- JavaScript documentation can be found [here](https://www.selenium.dev/selenium/docs/api/javascript/).
+module.exports = async function (context, req) {
+    context.log("Function entered.");
+    const browser = await chromium.launch({
+        headless: false
+    });
+    const context = await browser.newContext();
+
+    // Open new page
+    const page = await context.newPage();
+
+    await page.goto('https://www.bing.com/?toWww=1&redig=037D00CBA156451D8AFBC24E86985CDF');
+
+    // Close page
+    await page.close();
+
+    // ---------------------
+    await context.close();
+    await browser.close();
+};
+```
+
+1. After:
+``` javascript
+const { chromium } = require('playwright-chromium');
+const { AppInsightsContextListener } = require('appinsights-playwright')
+
+module.exports = async function (context, req) {
+    context.log("Function entered.");
+
+    // initialize AppInsightsListener to collect information about Playwright execution
+    // set input parameter to:
+    //   - 'AutoCollect' to collect screenshots after every action taken
+    //   - 'OnFailure' to collect screenshots only for the failed actions
+    //   - 'No' to skip the screenshots collection. Default value.
+    const listener = new AppInsightsContextListener('AutoCollect');
+
+    try {
+        const browser = await chromium.launch();
+        const browserContext = await browser.newContext();
+
+        // Open new page
+        const page = await browserContext.newPage();
+        
+        await page.goto('https://www.bing.com/?toHttps=1&redig=69CC3FCA85A84B3AAFA1D638964EA2B1');
+
+        // Close page
+        await page.close();
+
+        // ---------------------
+        await browserContext.close();
+        await browser.close();
+
+    } catch (err) {
+        context.log.error(err);
+    } finally {
+        // Serialize collected data into the response
+        context.res = listener.serializeData();
+        context.done();
+    }
+};
+```
+
+<br/>
+
+### Configuring Chromium download location
+
+By default, Playwright downloads Chromium to a location outside the function app's folder. In order to include Chromium in the build artifacts, we need to instruct Playwright to install Chromium in the app's node_modules folder. To do this, navigate to Configuration blade of your Function App and create an app setting named **PLAYWRIGHT_BROWSERS_PATH** with a value of **0** in the function app in Azure. This setting is also used by Playwright at run-time to locate Chromium in node_modules.
+
+  ![](./AppSettings.png)
+
+Here you can also ensure that **FUNCTIONS_WORKER_RUNTIME** is set to **node** and **FUNCTIONS_EXTENSION_VERSION** is set to **~3**.
+
+### Configuring VSCode for remote build
+
+1. Enable scmDoBuildDuringDeployment setting
+By default, the Azure Functions VS Code extension will deploy the app using local build, which means it'll run npm install locally and deploy the app package. For remote build, we update the app's .vscode/settings.json to enable scmDoBuildDuringDeployment.
+
+``` json
+{
+    "azureFunctions.deploySubpath": ".",
+    "azureFunctions.projectLanguage": "JavaScript",
+    "azureFunctions.projectRuntime": "~3",
+    "debug.internalConsoleOptions": "neverOpen",
+    "azureFunctions.scmDoBuildDuringDeployment": true
+}
+```
+
+We can also remove the postDeployTask and preDeployTask settings that runs npm commands before and after the deployment; they're not needed because we're running the build remotely.
+
+2. Add node_modules folder to .funcignore
+This excludes the node_modules folder from the deployment package to make the upload as small as possible and use only remote versions of the packages. File should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.funcignore).
+
+3. Enable myget registry for remote build
+As appinsights-playwright package is currently deployed only to myget the feed needs to be included as an additional npm feed during deloyment. To enable this create .npmrc file in the project root folder and put the following line, file should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.npmrc).
+
+``` text
+registry=https://www.myget.org/F/applicationinsights-cat/npm/
+```
+
+### Publish code 
+
+1. Using VSCode
+
+Use the **Azure Functions: Deploy to Function App...** command to publish the app. It'll recognize the settings we configured earlier and use remote build.
+
+2. Using Azure Functions Core Tools 
+
+Run the command with the **--build remote** flag:
+
+``` powershell
+func azure functionapp publish <YourAzureFunctionName> --build remote
+``` 
+
+### Create availability test
+
+Follow instructions above in the API testing section how to create the availability URL ping test.
+
+After setup is done, wait till results appear in the Availability blade:
+
+![](./AvailabilityResults.png)
+
+
+And click on Load test steps button to see more details of Playwright test execution:
+
+![](./E2EDetails.png)
+
+### Troubleshooting
+
+If you don't see any additional Playwright steps in E2E to blade, try to do the following:
+1) Navigate to Function App -> Functions -> your function Code + Test blade
+2) Click Test/Run button in the command bar
+3) Change HttpMethod type to GET
+4) Click Run
+5) Open different tab in browser and call you function URL
+6) Move back to Code + Test blade and check opened Logs console panel for exceptions
+
+![](./FunctiontestAndRun.png)
+
+If you see the following exception generated it means that remote build didn't work for you. Please double check that you configured remote build in VSCode and specified **PLAYWRIGHT_BROWSERS_PATH** app setting correctly:
+
+```diff
+- 2020-10-14T23:36:20.789 [Error] browserType.launch: Failed to launch chromium because executable doesn't exist at D:\home\site\wwwroot\node_modules\playwright-chromium\.local-browsers\chromium-815036\chrome-win\chrome.exeTry re-installing playwright with "npm install playwright"
+```
+
+If there's no exceptions in the log but you're getting empty response that looks like JSON below then mostly likely you gorgot to include node_modules folder to .funcignore. Please carefully review all steps in **Configuring VSCode for remote build** section.
+
+```json
+{"type":"playwright","steps":[]}
+```
+
+### Additional useful information
+
+- Some generic samples like authentication can be found [here](https://github.com/microsoft/playwright/tree/master/docs/examples).
+- If you would like to use custom Docker image instead of Consumption plan you can find the documentation with already included browsers [here](https://github.com/microsoft/playwright/tree/master/docs/docker).
+
+
+
+## 2. Selenium
+
+- JavaScript documentation can be found [here](https://www.selenium.dev/selenium/docs/api/javascript/). We don't have default integration as of today.
