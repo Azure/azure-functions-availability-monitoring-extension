@@ -6,21 +6,30 @@
 
 # API testing in Azure Function
 
+### Create Azure Function with your custom code
+
 1) Create Azure Function template in VS (VS 2017 or VS 2019) for C# or VSCode for JavaScript and choose HttpTrigger as an initial template configuration
 2) Write custom code to ping your application 
 3) Deploy your code to Azure Function app and connect Function app to Application Insights 
-4) Get and copy your Azure Function URL by navigation to Function App -> Functions -> your function Overview blade
+
+
+### Setup availability test
+1) Get and copy your Azure Function URL by navigation to Function App -> Functions -> your function Overview blade in the Azure Portal
 
   ![](./GetFunctionUrl.png)
 
-5) Navigate to Availability blade in the Azure Portal and create new web test, choose regular URL ping test and paste saved Azure Function URL
+2) Navigate to Availability blade in the Azure Portal and create new web test, choose regular URL ping test and paste saved Azure Function URL
+
+**NOTE** Selected locations actually do not matter, so you can choose only one or you might want to choose mutiple to have test execution more frequently (by choosing only one location you will have 5mins default test frequency).
 
   ![](./CreateTest.png)
 
 
 <br>
 
-Optinally you can also enable AppInsights SDK for Node.JS in order to collect generated outgoing dependency calls from your Function.
+### Optional AppInsights SDK configuration for JavaScript
+
+Dependency calls are utomatically collected for C# but you need to do manual enablement of AppInsights SDK for Node.JS in order to collect generated outgoing dependency calls from your Function.
 Full documentation for Node.JS SDK can be found [here](https://github.com/microsoft/ApplicationInsights-node.js/blob/develop/README.md).
 
 1) Enable Application Insights SDK for Node.JS:
@@ -66,13 +75,13 @@ func --version
 ```
 
 ### Pre-configuration
-1. Create Azure Function template in VSCode for JavaScript and choose HttpTrigger as an initial template configuration. Ensure that Function v3 was created by checking .vscode/settings.json file - it should have projectRuntime set to 3:
+1. Create Azure Function template in VSCode for JavaScript and choose HttpTrigger as an initial template configuration. Ensure that Function v3 was created by checking **.vscode/settings.json** file - it should have projectRuntime set to 3:
 
 ``` json
 "azureFunctions.projectRuntime": "~3",
 ```
 
-2. Install Playwright npm module. Ensure that you are using the latest 1.5.* version, otherwise upgrade it to the latest.
+2. Install Playwright npm module. Ensure that you are using the latest **1.5.\*** version, otherwise upgrade it to the latest.
 
 ``` powershell
 npm install playwright-chromium
@@ -217,7 +226,7 @@ Here you can also ensure that **FUNCTIONS_WORKER_RUNTIME** is set to **node** an
 ### Configuring VSCode for remote build
 
 1. Enable scmDoBuildDuringDeployment setting
-By default, the Azure Functions VS Code extension will deploy the app using local build, which means it'll run npm install locally and deploy the app package. For remote build, we update the app's .vscode/settings.json to enable scmDoBuildDuringDeployment.
+By default, the Azure Functions VS Code extension will deploy the app using local build, which means it'll run npm install locally and deploy the app package. For remote build, we update the app's **.vscode/settings.json** to enable **scmDoBuildDuringDeployment**.
 
 ``` json
 {
@@ -232,10 +241,10 @@ By default, the Azure Functions VS Code extension will deploy the app using loca
 We can also remove the postDeployTask and preDeployTask settings that runs npm commands before and after the deployment; they're not needed because we're running the build remotely.
 
 2. Add node_modules folder to .funcignore
-This excludes the node_modules folder from the deployment package to make the upload as small as possible and use only remote versions of the packages. File should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.funcignore).
+This excludes the **node_modules folder** from the deployment package to make the upload as small as possible and use only remote versions of the packages. File should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.funcignore).
 
 3. Enable myget registry for remote build
-As appinsights-playwright package is currently deployed only to myget the feed needs to be included as an additional npm feed during deloyment. To enable this create .npmrc file in the project root folder and put the following line, file should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.npmrc).
+As appinsights-playwright package is currently deployed only to myget the feed needs to be included as an additional npm feed during deloyment. To enable this create **.npmrc** file in the project root folder and put the following line, file should look like [this](https://github.com/Azure/azure-functions-availability-monitoring-extension/tree/master/src/Demos/JavaScript-Monitoring-Samples/.npmrc).
 
 ``` text
 registry=https://www.myget.org/F/applicationinsights-cat/npm/
@@ -245,7 +254,7 @@ registry=https://www.myget.org/F/applicationinsights-cat/npm/
 
 1. Using VSCode
 
-Use the **Azure Functions: Deploy to Function App...** command to publish the app. It'll recognize the settings we configured earlier and use remote build.
+Use the **Azure Functions: Deploy to Function App...** command to publish the app. It'll recognize the settings we configured earlier and automatically use remote build.
 
 2. Using Azure Functions Core Tools 
 
@@ -257,7 +266,7 @@ func azure functionapp publish <YourAzureFunctionName> --build remote
 
 ### Create availability test
 
-Follow instructions above in the API testing section how to create the availability URL ping test.
+Follow instructions above in the **Setup availability test** section how to create the availability URL ping test.
 
 After setup is done, wait till results appear in the Availability blade:
 
@@ -286,7 +295,7 @@ If you see the following exception generated it means that remote build didn't w
 - 2020-10-14T23:36:20.789 [Error] browserType.launch: Failed to launch chromium because executable doesn't exist at D:\home\site\wwwroot\node_modules\playwright-chromium\.local-browsers\chromium-815036\chrome-win\chrome.exeTry re-installing playwright with "npm install playwright"
 ```
 
-If there's no exceptions in the log but you're getting empty response that looks like JSON below then mostly likely you gorgot to include node_modules folder to .funcignore. Please carefully review all steps in **Configuring VSCode for remote build** section.
+If there are no exceptions in the log but you're getting empty response that looks like JSON below then mostly likely you forgot to include node_modules folder to .funcignore. Please carefully review all steps in **Configuring VSCode for remote build** section.
 
 ```json
 {"type":"playwright","steps":[]}
