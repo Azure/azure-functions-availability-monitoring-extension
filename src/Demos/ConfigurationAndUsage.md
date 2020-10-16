@@ -1,8 +1,12 @@
-# Setting up Azure Function
+# Azure Function integration with Availability testing in Azure Monitor*
 
 1. [API testing](#API%20testing%20in%20Azure%20Function)
-3. [Browser testing](#Browser%20testing%20in%20Azure%20Function)
+2. [Browser testing](#Browser%20testing%20in%20Azure%20Function)
+3. [Authentication in Azure Functions](#Authentication%20in%20Azure%20Functions)
 
+*this is a part of private preview in Azure Monitor, please contact Carter.Socha@microsoft.com for more details if you would like to participate in.
+
+<br/>
 
 # API testing in Azure Function
 
@@ -45,7 +49,8 @@ const appInsights = require('applicationinsights');
 appInsights.setup().start();
 ```
 
-<br>
+<br/>
+<br/>
 
 # Browser testing in Azure Function
 
@@ -311,3 +316,11 @@ If there are no exceptions in the log but you're getting empty response that loo
 ## 2. Selenium
 
 - JavaScript documentation can be found [here](https://www.selenium.dev/selenium/docs/api/javascript/). We don't have default integration as of today.
+
+<br/>
+<br/>
+
+# Authentication in Azure Functions
+
+One of the most common questions is how to use secrets in Azure Function when you want to do authentication during API test for example. The newest and the most recommended approach is to use the integration between Azure Functions (App Services) and a Key Vault.
+[This article](https://docs.microsoft.com/azure/app-service/app-service-key-vault-references) shows you how to work with secrets from Azure Key Vault in your App Service or Azure Functions application without requiring any code changes. 
