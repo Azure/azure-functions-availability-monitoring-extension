@@ -1,10 +1,10 @@
 # Azure Function integration with Availability testing in Azure Monitor*
 
-1. [API testing](#API%20testing%20in%20Azure%20Function)
-2. [Browser testing](#Browser%20testing%20in%20Azure%20Function)
-3. [Authentication in Azure Functions](#Authentication%20in%20Azure%20Functions)
+1. [API testing](#API-testing-in-Azure-Function)
+2. [Browser testing](#Browser-testing-in-Azure-Function)
+3. [Authentication in Azure Functions](#Authentication-in-Azure-Functions)
 
-*this is a part of private preview in Azure Monitor, please contact Carter.Socha@microsoft.com for more details if you would like to participate in.
+*this is a part of private preview in Azure Monitor, please contact casocha@microsoft.com for more details if you would like to participate in.
 
 <br/>
 
