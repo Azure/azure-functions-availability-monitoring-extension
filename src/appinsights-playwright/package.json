@@ -1,6 +1,6 @@
 {
     "name": "appinsights-playwright",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "AppInsights Playwright",
     "repository": "github:Azure/azure-functions-availability-monitoring-extension",
     "homepage": "",

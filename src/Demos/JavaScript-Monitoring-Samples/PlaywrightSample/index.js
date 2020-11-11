@@ -1,15 +1,15 @@
 const { chromium } = require('playwright-chromium');
 const { AppInsightsContextListener } = require('appinsights-playwright')
 
-module.exports = async function (context, req) {
-    context.log("Function entered.");
+// initialize AppInsightsListener to collect information about Playwright execution
+// set input parameter to:
+//   - 'AutoCollect' to collect screenshots after every action taken
+//   - 'OnFailure' to collect screenshots only for the failed actions
+//   - 'No' to skip the screenshots collection. Default value.
+const listener = new AppInsightsContextListener('AutoCollect');
 
-    // initialize AppInsightsListener to collect information about Playwright execution
-    // set input parameter to:
-    //   - 'AutoCollect' to collect screenshots after every action taken
-    //   - 'OnFailure' to collect screenshots only for the failed actions
-    //   - 'No' to skip the screenshots collection. Default value.
-    const listener = new AppInsightsContextListener('AutoCollect');
+module.exports = async function (context, req) {
+    context.log("Function entered.");    
 
     try {
         const browser = await chromium.launch();

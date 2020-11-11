@@ -117,14 +117,14 @@ Resulting code should look like:
 const { chromium } = require('playwright-chromium');
 const { AppInsightsContextListener } = require('appinsights-playwright')
 
-module.exports = async function (context, req) {    
-    // initialize AppInsightsListener to collect information about Playwright execution
-    // set input parameter to:
-    //   - 'AutoCollect' to collect screenshots after every action taken
-    //   - 'OnFailure' to collect screenshots only for the failed actions
-    //   - 'No' to skip the screenshots collection. Default value.
-    const listener = new AppInsightsContextListener('AutoCollect');
+// initialize AppInsightsListener to collect information about Playwright execution
+// set input parameter to:
+//   - 'AutoCollect' to collect screenshots after every action taken
+//   - 'OnFailure' to collect screenshots only for the failed actions
+//   - 'No' to skip the screenshots collection. Default value.
+const listener = new AppInsightsContextListener('AutoCollect');
 
+module.exports = async function (context, req) {    
     try {
         // your custom Playwright code
     } catch (err) {
@@ -182,15 +182,15 @@ module.exports = async function (context, req) {
 const { chromium } = require('playwright-chromium');
 const { AppInsightsContextListener } = require('appinsights-playwright')
 
+// initialize AppInsightsListener to collect information about Playwright execution
+// set input parameter to:
+//   - 'AutoCollect' to collect screenshots after every action taken
+//   - 'OnFailure' to collect screenshots only for the failed actions
+//   - 'No' to skip the screenshots collection. Default value.
+const listener = new AppInsightsContextListener('AutoCollect');
+
 module.exports = async function (context, req) {
     context.log("Function entered.");
-
-    // initialize AppInsightsListener to collect information about Playwright execution
-    // set input parameter to:
-    //   - 'AutoCollect' to collect screenshots after every action taken
-    //   - 'OnFailure' to collect screenshots only for the failed actions
-    //   - 'No' to skip the screenshots collection. Default value.
-    const listener = new AppInsightsContextListener('AutoCollect');
 
     try {
         const browser = await chromium.launch();

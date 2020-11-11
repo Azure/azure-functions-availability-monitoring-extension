@@ -67,9 +67,14 @@ var AppInsightsContextListener = /** @class */ (function () {
             type: 'playwright',
             steps: this._actionListener._data
         };
+        var status = this._actionListener._failed ? '500' : '200';
+        // clean data
+        this._actionListener._data = [];
+        this._actionListener._failed = false;
+        // serialize response
         return {
             body: JSON.stringify(data),
-            status: this._actionListener._failed ? '500' : '200',
+            status: status,
             headers: {
                 "content-type": "application/json"
             }
